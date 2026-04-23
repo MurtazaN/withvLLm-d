@@ -1,2 +1,3 @@
 # vLLM for GPU nvidia - uv pip install vllm --torch-backend=auto
 vLLM
+# uv pip install guidellm lm-eval
