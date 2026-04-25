@@ -95,7 +95,7 @@ def get_client(route: str = "local") -> AsyncOpenAI:
         )
 
 
-MODEL_NAME = "nvidia/nemotron-3-super-120b-a12b"
+MODEL_NAME = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
 
 
 def log_routing_decision(agent_name: str, route: str, reason: str, prompt: str):
