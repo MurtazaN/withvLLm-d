@@ -1,4 +1,6 @@
-# NemoClaw sandbox egress policy for SOC-Claw
+# Policy intent + audit configuration for SOC-Claw.
+# The runtime artifact NemoClaw actually consumes is soc-claw/blueprint.yaml;
+# this file documents the egress whitelist and audit toggles for the demo writeup.
 sandbox:
   name: soc-claw
   isolation:

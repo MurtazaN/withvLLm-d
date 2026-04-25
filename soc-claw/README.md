@@ -75,8 +75,10 @@ soc-claw/
 │   ├── templates/index.html     # Red Hat-themed HTML interface
 │   └── app.py                   # Gradio analyst interface (alternative)
 ├── config/
-│   ├── nemoclaw_policy.yaml     # NemoClaw sandbox egress whitelist
-│   └── privacy_routes.yaml      # Privacy routing rules
+│   ├── nemoclaw_policy.yaml     # Policy intent / audit reference (PRD writeup)
+│   └── privacy_routes.yaml      # Privacy routing rules (consumed by utils.py)
+├── blueprint.yaml               # NemoClaw blueprint — runtime artifact (inference profiles, network policy, agent tools, steering)
+├── setup.sh                     # NemoClaw onboarding: installs nemoclaw, onboards sandbox, stages workspace
 ├── pipeline.py                  # Orchestrator: Triage → Verifier → Response
 ├── utils.py                     # Shared: JSON extraction, privacy router, LLM client
 ├── requirements.txt
@@ -124,6 +126,24 @@ python ui/server.py
 
 # 4. Or run the benchmark
 python benchmark/harness.py
+```
+
+## Run inside NemoClaw
+
+Once vLLM is up at `:8000` on a Brev Tier-4 launchable, onboard soc-claw into a NemoClaw sandbox so network/filesystem/steering policy from `blueprint.yaml` is enforced:
+
+```bash
+# 1. Install NemoClaw, onboard the soc-claw sandbox, stage the workspace
+bash setup.sh
+
+# 2. Connect to the sandbox shell
+nemoclaw soc-claw connect
+
+# 3. Inside the sandbox: install python deps once, then drive the pipeline
+pip install -r requirements.txt
+openclaw tui                 # interactive TUI
+# or: python3 ui/server.py   # full FastAPI dashboard on :7860
+# or: python3 pipeline.py    # single-alert run
 ```
 
 See [SETUP.md](SETUP.md) for full setup guide including GPU requirements, model options, and troubleshooting.
