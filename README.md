@@ -34,6 +34,9 @@ Raw Alert → Triage Agent (tools) → Verifier Agent (QA) → Response Agent (p
 ![Alert Analysis](docs/soc-claw-ui.png)
 *Alert analysis: Triage & Verification (left), Technical Context with IP reputation, asset intelligence, and MITRE ATT&CK mapping (center), Response Plan with per-step approve/reject actions (right).*
 
+![30 Alert Benchmark](30_alerts.png)
+*Benchmark — Run All 30: 30 alerts processed in 254.7s. Triage accuracy 76.7%, verified accuracy 63.3%. Per-alert results with ground truth, triage, verified severity, match status, and latency.*
+
 ---
 
 ## Key Results
