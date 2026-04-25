@@ -166,15 +166,21 @@ async def run_benchmark(max_alerts: int = 30) -> dict:
 
     throughput = len(valid) / total_time * 60 if total_time else 0
 
+    def safe_mean(vals):
+        return round(statistics.mean(vals)) if vals else 0
+
+    def safe_pct(vals, p):
+        return round(compute_percentile(vals, p)) if vals else 0
+
     metrics = {
         "total_alerts": n,
         "total_time_s": round(total_time, 1),
         "throughput_alerts_per_min": round(throughput, 1),
         "latency": {
-            "triage": {"avg": round(statistics.mean(triage_lats)), "p50": round(compute_percentile(triage_lats, 50)), "p95": round(compute_percentile(triage_lats, 95))},
-            "verification": {"avg": round(statistics.mean(verif_lats)), "p50": round(compute_percentile(verif_lats, 50)), "p95": round(compute_percentile(verif_lats, 95))},
-            "response": {"avg": round(statistics.mean(resp_lats)), "p50": round(compute_percentile(resp_lats, 50)), "p95": round(compute_percentile(resp_lats, 95))},
-            "e2e": {"avg": round(statistics.mean(e2e_lats)), "p50": round(compute_percentile(e2e_lats, 50)), "p95": round(compute_percentile(e2e_lats, 95))},
+            "triage": {"avg": safe_mean(triage_lats), "p50": safe_pct(triage_lats, 50), "p95": safe_pct(triage_lats, 95)},
+            "verification": {"avg": safe_mean(verif_lats), "p50": safe_pct(verif_lats, 50), "p95": safe_pct(verif_lats, 95)},
+            "response": {"avg": safe_mean(resp_lats), "p50": safe_pct(resp_lats, 50), "p95": safe_pct(resp_lats, 95)},
+            "e2e": {"avg": safe_mean(e2e_lats), "p50": safe_pct(e2e_lats, 50), "p95": safe_pct(e2e_lats, 95)},
         },
         "accuracy": {
             "triage_raw": round(triage_accuracy, 1),
