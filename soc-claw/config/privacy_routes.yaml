@@ -1,0 +1,32 @@
+# Privacy routing policy
+# Determines which inference requests stay local vs go to cloud
+# Both paths use Nemotron — the router controls WHERE data goes, not WHICH model runs
+
+local_inference:
+  provider: "nemotron"
+  model: "nvidia/nemotron-3-super-120b-a12b"
+  endpoint: "localhost:8000"  # vLLM
+  route_when:
+    - pattern: "10\\.\\d+\\.\\d+\\.\\d+"  # Internal IPs
+      reason: "Internal IP address detected"
+    - pattern: "192\\.168\\.\\d+\\.\\d+"
+      reason: "Internal IP address detected"
+    - pattern: "(DC-|SRV-|WS-|FW-|VPN-)"  # Internal hostnames
+      reason: "Internal hostname detected"
+    - pattern: "(payload|command_line|raw_log)"  # Alert payloads
+      reason: "Alert payload content detected"
+    - pattern: "(employee|user_id|email)"  # PII
+      reason: "Employee identifier detected"
+
+cloud_inference:
+  provider: "nemotron"
+  model: "nvidia/nemotron-3-super-120b-a12b"
+  endpoint: "build.nvidia.com"
+  route_when:
+    - description: "Generic MITRE ATT&CK technique descriptions"
+    - description: "General threat actor profiles and TTPs"
+    - description: "Attack pattern analysis without org-specific context"
+
+logging:
+  log_every_decision: true
+  format: "{timestamp} | {route} | {reason} | {prompt_hash}"

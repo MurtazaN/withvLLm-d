@@ -1,0 +1,142 @@
+[
+  {
+    "technique_id": "T1059.001",
+    "name": "Command and Scripting Interpreter: PowerShell",
+    "tactic": "Execution",
+    "description": "Adversaries may abuse PowerShell commands and scripts for execution. PowerShell is a powerful interactive command-line interface and scripting environment included in the Windows operating system.",
+    "keywords": ["powershell", "encoded", "download", "invoke-expression", "iex", "bypass", "executionpolicy"]
+  },
+  {
+    "technique_id": "T1003.001",
+    "name": "OS Credential Dumping: LSASS Memory",
+    "tactic": "Credential Access",
+    "description": "Adversaries may attempt to access credential material stored in the process memory of the Local Security Authority Subsystem Service (LSASS).",
+    "keywords": ["mimikatz", "lsass", "credential", "dump", "sekurlsa", "password", "procdump"]
+  },
+  {
+    "technique_id": "T1021.002",
+    "name": "Remote Services: SMB/Windows Admin Shares",
+    "tactic": "Lateral Movement",
+    "description": "Adversaries may use Valid Accounts to interact with a remote network share using Server Message Block (SMB) for lateral movement.",
+    "keywords": ["psexec", "lateral", "smb", "remote", "service", "admin", "share", "movement"]
+  },
+  {
+    "technique_id": "T1048.001",
+    "name": "Exfiltration Over Alternative Protocol: Exfiltration Over Symmetric Encrypted Non-C2 Protocol",
+    "tactic": "Exfiltration",
+    "description": "Adversaries may steal data by exfiltrating it over a symmetrically encrypted network protocol other than that of the existing command and control channel.",
+    "keywords": ["exfiltration", "large", "transfer", "outbound", "data", "upload", "external"]
+  },
+  {
+    "technique_id": "T1490",
+    "name": "Inhibit System Recovery",
+    "tactic": "Impact",
+    "description": "Adversaries may delete or remove built-in data and turn off services designed to aid in the recovery of a corrupted system to prevent recovery.",
+    "keywords": ["vssadmin", "shadow", "delete", "ransomware", "recovery", "backup", "wbadmin"]
+  },
+  {
+    "technique_id": "T1071.001",
+    "name": "Application Layer Protocol: Web Protocols",
+    "tactic": "Command and Control",
+    "description": "Adversaries may communicate using application layer protocols associated with web traffic to avoid detection/network filtering by blending in with existing traffic.",
+    "keywords": ["beacon", "callback", "http", "https", "c2", "cobalt", "strike", "command", "control"]
+  },
+  {
+    "technique_id": "T1071.004",
+    "name": "Application Layer Protocol: DNS",
+    "tactic": "Command and Control",
+    "description": "Adversaries may communicate using the Domain Name System (DNS) application layer protocol to avoid detection by blending in with existing traffic.",
+    "keywords": ["dns", "tunnel", "tunneling", "query", "subdomain", "resolution", "exfil", "covert"]
+  },
+  {
+    "technique_id": "T1110.001",
+    "name": "Brute Force: Password Guessing",
+    "tactic": "Credential Access",
+    "description": "Adversaries with no prior knowledge of legitimate credentials may attempt to guess passwords to gain access to user accounts.",
+    "keywords": ["brute", "force", "login", "failed", "authentication", "password", "guessing", "attempts"]
+  },
+  {
+    "technique_id": "T1505.003",
+    "name": "Server Software Component: Web Shell",
+    "tactic": "Persistence",
+    "description": "Adversaries may backdoor web servers with web shells to establish persistent access to systems.",
+    "keywords": ["webshell", "upload", "jsp", "php", "aspx", "backdoor", "web", "shell"]
+  },
+  {
+    "technique_id": "T1078.002",
+    "name": "Valid Accounts: Domain Accounts",
+    "tactic": "Privilege Escalation",
+    "description": "Adversaries may obtain and abuse credentials of a domain account to gain access or escalate privileges within an environment.",
+    "keywords": ["privilege", "escalation", "domain", "admin", "account", "group", "membership"]
+  },
+  {
+    "technique_id": "T1053.005",
+    "name": "Scheduled Task/Job: Scheduled Task",
+    "tactic": "Persistence",
+    "description": "Adversaries may abuse the Windows Task Scheduler to perform task scheduling for initial or recurring execution of malicious code.",
+    "keywords": ["scheduled", "task", "cron", "job", "persistence", "schtasks", "recurring"]
+  },
+  {
+    "technique_id": "T1543.003",
+    "name": "Create or Modify System Process: Windows Service",
+    "tactic": "Persistence",
+    "description": "Adversaries may create or modify Windows services to repeatedly execute malicious payloads as part of persistence.",
+    "keywords": ["service", "create", "modify", "persistence", "startup", "autostart", "daemon"]
+  },
+  {
+    "technique_id": "T1082",
+    "name": "System Information Discovery",
+    "tactic": "Discovery",
+    "description": "An adversary may attempt to get detailed information about the operating system and hardware, including version, patches, and architecture.",
+    "keywords": ["discovery", "system", "information", "hostname", "os", "version", "architecture"]
+  },
+  {
+    "technique_id": "T1074.001",
+    "name": "Data Staged: Local Data Staging",
+    "tactic": "Collection",
+    "description": "Adversaries may stage collected data in a central location or directory on the local system prior to exfiltration.",
+    "keywords": ["staging", "collect", "archive", "compress", "zip", "rar", "local", "data"]
+  },
+  {
+    "technique_id": "T1562.001",
+    "name": "Impair Defenses: Disable or Modify Tools",
+    "tactic": "Defense Evasion",
+    "description": "Adversaries may modify and/or disable security tools to avoid possible detection of their malware/tools and activities.",
+    "keywords": ["disable", "antivirus", "defender", "edr", "tamper", "security", "tool"]
+  },
+  {
+    "technique_id": "T1219",
+    "name": "Remote Access Software",
+    "tactic": "Command and Control",
+    "description": "An adversary may use legitimate desktop support and remote access software to establish an interactive command and control channel to target systems.",
+    "keywords": ["remote", "access", "rdp", "vnc", "teamviewer", "connectwise", "anydesk"]
+  },
+  {
+    "technique_id": "T1046",
+    "name": "Network Service Discovery",
+    "tactic": "Discovery",
+    "description": "Adversaries may attempt to get a listing of services running on remote hosts and local network infrastructure devices, including those that may be vulnerable to remote software exploitation.",
+    "keywords": ["scan", "nmap", "port", "service", "discovery", "network", "probe"]
+  },
+  {
+    "technique_id": "T1041",
+    "name": "Exfiltration Over C2 Channel",
+    "tactic": "Exfiltration",
+    "description": "Adversaries may steal data by exfiltrating it over an existing command and control channel.",
+    "keywords": ["exfiltration", "c2", "channel", "steal", "data", "outbound", "command"]
+  },
+  {
+    "technique_id": "T1486",
+    "name": "Data Encrypted for Impact",
+    "tactic": "Impact",
+    "description": "Adversaries may encrypt data on target systems or on large numbers of systems in a network to interrupt availability to system and network resources.",
+    "keywords": ["encrypt", "ransomware", "ransom", "lockbit", "impact", "file", "rename"]
+  },
+  {
+    "technique_id": "T1091",
+    "name": "Replication Through Removable Media",
+    "tactic": "Lateral Movement",
+    "description": "Adversaries may move onto systems by copying malware to removable media and taking advantage of Autorun features when the media is inserted.",
+    "keywords": ["usb", "removable", "media", "autorun", "drive", "plug", "storage"]
+  }
+]

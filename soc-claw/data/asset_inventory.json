@@ -1,0 +1,137 @@
+[
+  {
+    "hostname": "DC-FINANCE-01",
+    "criticality": "critical",
+    "business_function": "Active Directory domain controller for finance",
+    "owner": "Infrastructure Team",
+    "os": "Windows Server 2022",
+    "last_patch": "2026-04-10",
+    "network_zone": "corporate-core"
+  },
+  {
+    "hostname": "DC-CORP-01",
+    "criticality": "critical",
+    "business_function": "Primary Active Directory domain controller",
+    "owner": "Infrastructure Team",
+    "os": "Windows Server 2022",
+    "last_patch": "2026-04-12",
+    "network_zone": "corporate-core"
+  },
+  {
+    "hostname": "SRV-DB-01",
+    "criticality": "critical",
+    "business_function": "Primary SQL database server for customer data",
+    "owner": "Database Team",
+    "os": "Ubuntu 22.04 LTS",
+    "last_patch": "2026-04-08",
+    "network_zone": "data-tier"
+  },
+  {
+    "hostname": "VPN-GW-01",
+    "criticality": "high",
+    "business_function": "Corporate VPN gateway for remote access",
+    "owner": "Network Team",
+    "os": "Palo Alto PAN-OS 11.1",
+    "last_patch": "2026-04-05",
+    "network_zone": "dmz"
+  },
+  {
+    "hostname": "SRV-FILE-01",
+    "criticality": "high",
+    "business_function": "Central file server for shared documents",
+    "owner": "Infrastructure Team",
+    "os": "Windows Server 2022",
+    "last_patch": "2026-04-10",
+    "network_zone": "corporate-core"
+  },
+  {
+    "hostname": "SRV-WEB-01",
+    "criticality": "high",
+    "business_function": "Public-facing web application server",
+    "owner": "Web Platform Team",
+    "os": "Ubuntu 22.04 LTS",
+    "last_patch": "2026-04-15",
+    "network_zone": "dmz"
+  },
+  {
+    "hostname": "SRV-EMAIL-01",
+    "criticality": "high",
+    "business_function": "Microsoft Exchange email server",
+    "owner": "Messaging Team",
+    "os": "Windows Server 2022",
+    "last_patch": "2026-04-11",
+    "network_zone": "corporate-core"
+  },
+  {
+    "hostname": "WS-HR-042",
+    "criticality": "medium",
+    "business_function": "HR department workstation",
+    "owner": "Human Resources",
+    "os": "Windows 11 Enterprise",
+    "last_patch": "2026-04-14",
+    "network_zone": "corporate-endpoints"
+  },
+  {
+    "hostname": "WS-DEV-017",
+    "criticality": "medium",
+    "business_function": "Software developer workstation",
+    "owner": "Engineering Team",
+    "os": "macOS 15.3",
+    "last_patch": "2026-04-13",
+    "network_zone": "corporate-endpoints"
+  },
+  {
+    "hostname": "WS-MKTG-003",
+    "criticality": "medium",
+    "business_function": "Marketing department workstation",
+    "owner": "Marketing Team",
+    "os": "Windows 11 Enterprise",
+    "last_patch": "2026-04-12",
+    "network_zone": "corporate-endpoints"
+  },
+  {
+    "hostname": "WS-CONTRACTOR-006",
+    "criticality": "medium",
+    "business_function": "Contractor VPN endpoint workstation",
+    "owner": "Vendor Management",
+    "os": "Windows 11 Pro",
+    "last_patch": "2026-03-28",
+    "network_zone": "contractor-vlan"
+  },
+  {
+    "hostname": "WS-ENG-PC-034",
+    "criticality": "medium",
+    "business_function": "Engineering workstation for cloud infrastructure",
+    "owner": "Engineering Team",
+    "os": "Ubuntu 24.04 LTS",
+    "last_patch": "2026-04-09",
+    "network_zone": "corporate-endpoints"
+  },
+  {
+    "hostname": "LAB-TEST-01",
+    "criticality": "low",
+    "business_function": "QA testing and lab environment machine",
+    "owner": "QA Team",
+    "os": "Windows Server 2019",
+    "last_patch": "2026-02-15",
+    "network_zone": "lab"
+  },
+  {
+    "hostname": "IOT-PRINTER-05",
+    "criticality": "low",
+    "business_function": "Network printer in server room",
+    "owner": "Facilities",
+    "os": "Embedded Linux",
+    "last_patch": "2025-11-20",
+    "network_zone": "iot-vlan"
+  },
+  {
+    "hostname": "WS-INTERN-009",
+    "criticality": "low",
+    "business_function": "Intern workstation",
+    "owner": "Human Resources",
+    "os": "Windows 11 Home",
+    "last_patch": "2026-04-01",
+    "network_zone": "guest-vlan"
+  }
+]

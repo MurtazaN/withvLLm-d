@@ -1,0 +1,29 @@
+# NemoClaw sandbox egress policy for SOC-Claw
+sandbox:
+  name: soc-claw
+  isolation:
+    network: true
+    filesystem: true
+    process: true
+
+egress:
+  # Only these endpoints are reachable from inside the sandbox
+  allowed:
+    - description: "Mock EDR API (for approved isolate_host actions)"
+      endpoint: "localhost:8001"
+    - description: "Mock Firewall API (for approved block_ioc actions)"
+      endpoint: "localhost:8002"
+    - description: "Mock ITSM API (for approved create_ticket actions)"
+      endpoint: "localhost:8003"
+    - description: "vLLM local inference"
+      endpoint: "localhost:8000"
+
+  # Everything else is blocked
+  default: deny
+
+audit:
+  log_tool_calls: true
+  log_inference_requests: true
+  log_routing_decisions: true
+  log_egress_attempts: true
+  log_action_approvals: true  # Track analyst approve/reject decisions
