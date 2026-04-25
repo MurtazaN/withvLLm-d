@@ -26,6 +26,20 @@ Raw Alert → Triage Agent (tools) → Verifier Agent (QA) → Response Agent (p
 
 **Privacy routing:** Sensitive SOC data (internal IPs, hostnames, alert payloads) stays on local Nemotron inference via vLLM. Only generic threat intel queries route to cloud. Same model, different locations — the router controls where data goes, not which model runs.
 
+## Screenshots
+
+### Alert Analysis — Live Pipeline Output
+![Alert Analysis View](docs/analysis-view.png)
+*Three-column layout: Triage & Verification (left), Technical Context with enrichment data (center), Response Plan with per-step approve/reject (right). Pipeline timing shown in top bar.*
+
+### Dashboard — Incident Overview
+![Dashboard View](docs/mockup-dashboard.png)
+*Alert feed with severity badges, category breakdown, and network traffic table. Click any alert to analyze.*
+
+### Alert Detail — Design Mockup
+![Alert Detail Mockup](docs/mockup-analysis.png)
+*Triage with severity adjustment (P3 → P2), MITRE ATT&CK mapping, response plan with playbook, severity override controls, and raw alert JSON.*
+
 ---
 
 ## Judging Criteria Alignment (20 points)
