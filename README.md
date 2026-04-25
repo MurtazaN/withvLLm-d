@@ -42,82 +42,16 @@ Raw Alert → Triage Agent (tools) → Verifier Agent (QA) → Response Agent (p
 
 ---
 
-## Judging Criteria Alignment (20 points)
-
-### Innovation & Problem Significance (5 pts)
-
-**The problem:** SOC alert overload is a $4.45M/breach problem. 95% of alerts are noise, but the 5% that slip through cause real damage.
-
-**What's novel:**
-- **Self-correcting pipeline** — The Verifier Agent acts as an automated senior analyst QA check. In our 30-alert benchmark, it improved triage accuracy from ~78% to ~88%. Most agentic systems don't verify their own decisions.
-- **Human-in-the-loop response** — Unlike systems that auto-execute or just recommend, SOC-Claw does both: AI triages, verifies, and plans; the human approves and executes. This is how enterprise security teams actually want AI to work.
-- **Three distinct agent roles** — Triage (enrichment + scoring), Verification (QA + self-correction), Response (action planning). Each agent has a focused role with clear system prompts.
-- **Analyst steering** — A human can inject context (e.g., "this is a red team exercise") and all three agents re-evaluate. The pipeline adapts in real time.
-
-### Technical Execution (5 pts)
-
-**Deep Tech implementation:**
-- **Three-agent pipeline** with distinct roles: tool-calling triage, reasoning-only verifier, reasoning-only response planner
-- **Triage Agent** calls three enrichment tools (IP reputation, MITRE ATT&CK mapper, asset CMDB lookup), correlates results, and scores severity
-- **Verifier Agent** runs a 4-point checklist (evidence-severity alignment, reasoning completeness, logical consistency, bias check) — catches under-scoring and over-scoring errors
-- **Response Agent** produces severity-appropriate action plans (P1: 5 steps with isolation + blocking; P4: logging only) with per-step reasoning, urgency, and approval requirements
-- **Pipeline orchestrator** with merge_verdict logic (confirmed/adjusted/flagged), timing instrumentation, and execute_approved_action mapping
-- **Privacy router** with regex pattern matching on prompts — routes sensitive data to local vLLM, generic queries to cloud
-- **NemoClaw sandbox** configuration with egress whitelist and audit logging
-- **30 synthetic SIEM alerts** with ground truth labels, cross-referenced threat intel (20 IOCs), asset inventory (15 hosts), and MITRE techniques (20 ATT&CK entries)
-- **Full benchmark harness** measuring latency (avg/p50/p95), accuracy (before/after verification), FP/FN rates, verification metrics, and response plan metrics
-
-**Tech stack:** vLLM + Nemotron, OpenAI-compatible API, FastAPI backend, custom HTML/JS frontend (Red Hat design), Python async pipeline.
-
-### Inference Efficiency Impact (4 pts)
-
-**Measurable gains from the NemoClaw agentic loop:**
+## Key Results
 
 | Metric | Value |
 |--------|-------|
+| Triage accuracy (before verification) | ~78% |
+| Verified accuracy (after verification) | ~88% |
+| Accuracy improvement from Verifier | +10% |
 | Pipeline stages using tools | 1 of 3 (Triage only) |
-| Pure inference stages | 2 of 3 (Verifier + Response) |
-| Verifier latency overhead | ~20-30% of triage time |
-| Accuracy improvement from Verifier | +10% (worth the latency) |
-| Privacy routing benefit | Sensitive data never leaves local inference — reduces cloud costs and compliance risk |
-
-- **2/3 of the pipeline is pure inference** — Verifier and Response agents have zero tool calls, making them fast. Only the Triage Agent needs enrichment tools.
-- **Verifier adds minimal latency but measurable accuracy** — The self-correction loop catches 2-3 triage errors per 30 alerts, improving accuracy by ~10%. This is a net positive: slightly more inference time for significantly better outcomes.
-- **Privacy router reduces cloud inference costs** — SOC data containing internal IPs, hostnames, and payloads is routed to local vLLM. Only generic threat intel queries go to cloud. This cuts cloud API costs while maintaining data sovereignty.
-- **Benchmark harness quantifies all of this** — Per-alert latency (triage/verify/response/total), throughput (alerts/minute), accuracy before vs after verification, all saved to CSV for analysis.
-
-### Presentation & Demo (3 pts)
-
-**Live demo flow (4 minutes):**
-
-1. **The hook (30s):** "4,000 alerts/day. 95% noise. $4.45M per breach. How do you trust AI's judgment? And how do you stop it from auto-isolating a production server?"
-
-2. **Live walkthrough (90s):** Feed ALT-001 (PowerShell on domain controller). Show triage enrichment in real time → P1 verdict → Verifier confirms → Response Agent produces 5-step plan → Analyst clicks "Approve All" → Actions execute.
-
-3. **Verifier catch (60s):** Feed an alert where triage under-scores. Verifier catches it: "Confirmed C2 on critical asset — this is P1." Severity adjusts from P3 to P1. Response plan changes from "create ticket" to "isolate + block + escalate."
-
-4. **Steering demo (45s):** Same alert, analyst types "this server is in our red team lab." All three agents re-run. P1 → P4. Plan shrinks from 5 steps to 1.
-
-5. **Close (15s):** "Three agents. One verifies the other. Humans approve before anything fires."
-
-**Honest limitations:**
-- 4B model is less accurate than the 120B target; production deployment needs larger GPU infrastructure
-- Synthetic alerts, not real SIEM data
-- Response tools are simulations, not integrated with real EDR/firewall APIs
-
-### Open-Source Contribution (3 pts)
-
-**SOC Agent Starter Kit — reusable beyond security:**
-
-1. **Three-agent verification pattern** — The Triage → Verifier → Response architecture is reusable for any domain where AI decisions need a QA step (medical triage, content moderation, loan underwriting). The verification checklist (evidence alignment, reasoning completeness, logical consistency, bias check) is domain-agnostic.
-
-2. **Human-in-the-loop approval framework** — The response plan → per-step approve/reject → execute flow is a reusable pattern for any agentic system where automated actions are dangerous.
-
-3. **Synthetic SOC dataset** — 30 alerts with ground truth labels, threat intel, asset inventory, and MITRE mappings. Useful for testing any SOC automation tool.
-
-4. **Privacy routing implementation** — Regex-based prompt router that splits sensitive vs generic inference to local vs cloud endpoints. Reusable for any privacy-sensitive agentic workflow.
-
-5. **Benchmark harness** — Measures accuracy before/after verification, latency breakdown, verification effectiveness. Adaptable to any multi-agent pipeline.
+| Pure inference stages (fast) | 2 of 3 (Verifier + Response) |
+| Privacy routing | Sensitive data stays on local inference |
 
 ---
 
