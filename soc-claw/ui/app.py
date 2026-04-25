@@ -375,6 +375,83 @@ def override_severity(override_sev, state):
         return f"Override failed: {e}", "Error generating response plan", state
 
 
+def run_all_alerts():
+    """Run all 30 alerts through the pipeline and return severity summary."""
+    alerts = load_alerts()
+    total = len(alerts)
+    counts = {"P1": 0, "P2": 0, "P3": 0, "P4": 0}
+    gt_counts = {"P1": 0, "P2": 0, "P3": 0, "P4": 0}
+    triage_correct = 0
+    verified_correct = 0
+    errors = 0
+    results_detail = []
+
+    import time as _time
+    start = _time.perf_counter()
+
+    for i, alert in enumerate(alerts):
+        progress = f"**Processing {i+1}/{total}** — {alert['id']}..."
+        yield progress
+
+        gt_sev = alert["ground_truth"]["severity"]
+        gt_counts[gt_sev] = gt_counts.get(gt_sev, 0) + 1
+
+        try:
+            result = asyncio.run(run_pipeline(alert))
+            triage_sev = result["triage_result"].get("severity", "P3")
+            if result.get("was_flagged"):
+                verified_sev = triage_sev
+            else:
+                verified_sev = result["final_verdict"].get("verified_severity", triage_sev)
+
+            counts[verified_sev] = counts.get(verified_sev, 0) + 1
+            if triage_sev == gt_sev:
+                triage_correct += 1
+            if verified_sev == gt_sev:
+                verified_correct += 1
+
+            results_detail.append(f"| {alert['id']} | {gt_sev} | {triage_sev} | {verified_sev} | {'✓' if verified_sev == gt_sev else '✗'} |")
+        except Exception as e:
+            errors += 1
+            counts["P3"] = counts.get("P3", 0) + 1
+            results_detail.append(f"| {alert['id']} | {gt_sev} | ERROR | ERROR | ✗ |")
+
+    elapsed = _time.perf_counter() - start
+    processed = total - errors
+
+    triage_acc = triage_correct / total * 100 if total else 0
+    verified_acc = verified_correct / total * 100 if total else 0
+    improvement = verified_acc - triage_acc
+
+    summary = f"""## Run All Complete — {total} Alerts Processed in {elapsed:.1f}s
+
+### Severity Distribution (Verified)
+
+| Severity | Count | Percentage |
+|----------|-------|------------|
+| **P1 Critical** | {counts.get('P1', 0)} | {counts.get('P1', 0)/total*100:.0f}% |
+| **P2 High** | {counts.get('P2', 0)} | {counts.get('P2', 0)/total*100:.0f}% |
+| **P3 Medium** | {counts.get('P3', 0)} | {counts.get('P3', 0)/total*100:.0f}% |
+| **P4 Low** | {counts.get('P4', 0)} | {counts.get('P4', 0)/total*100:.0f}% |
+
+### Accuracy
+
+| Metric | Value |
+|--------|-------|
+| Triage accuracy (before verification) | **{triage_acc:.1f}%** ({triage_correct}/{total}) |
+| Verified accuracy (after verification) | **{verified_acc:.1f}%** ({verified_correct}/{total}) |
+| Improvement from Verifier | **{improvement:+.1f}%** |
+| Errors | {errors} |
+
+### Per-Alert Results
+
+| Alert | Ground Truth | Triage | Verified | Correct |
+|-------|-------------|--------|----------|---------|
+""" + "\n".join(results_detail)
+
+    yield summary
+
+
 # ──────────────────────── Build UI ────────────────────────
 
 def create_app():
@@ -405,6 +482,8 @@ def create_app():
                 with gr.Row():
                     run_btn = gr.Button("Run Pipeline", variant="primary")
                     auto_feed_btn = gr.Button("Next Alert")
+                run_all_btn = gr.Button("Run All 30 Alerts", variant="secondary")
+                run_all_output = gr.Markdown("*Click 'Run All 30 Alerts' to process all alerts and see severity summary*")
                 alert_json_display = gr.Code(
                     label="Raw Alert JSON",
                     language="json",
@@ -490,6 +569,13 @@ def create_app():
             fn=next_alert,
             inputs=[alert_dropdown],
             outputs=[alert_dropdown],
+        )
+
+        # Run all 30 alerts
+        run_all_btn.click(
+            fn=run_all_alerts,
+            inputs=[],
+            outputs=[run_all_output],
         )
 
         # Action approval
