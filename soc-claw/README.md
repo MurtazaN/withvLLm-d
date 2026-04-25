@@ -26,10 +26,13 @@ Raw Alert → Triage Agent (tools) → Verifier Agent (QA) → Response Agent (p
 
 **Privacy routing:** Sensitive SOC data (internal IPs, hostnames, alert payloads) stays on local Nemotron inference via vLLM. Only generic threat intel queries route to cloud. Same model, different locations — the router controls where data goes, not which model runs.
 
-## Screenshot
+## Screenshots
 
-![SOC-Claw UI](docs/soc-claw-ui.png)
-*Alert analysis view: Triage & Verification (left), Technical Context with IP reputation, asset intelligence, and MITRE ATT&CK mapping (center), Response Plan with per-step approve/reject actions (right).*
+![Dashboard](docs/dashboard.png)
+*Dashboard: 30 synthetic SIEM alerts with severity badges, alert feed table, and "Run All 30" benchmark button.*
+
+![Alert Analysis](docs/soc-claw-ui.png)
+*Alert analysis: Triage & Verification (left), Technical Context with IP reputation, asset intelligence, and MITRE ATT&CK mapping (center), Response Plan with per-step approve/reject actions (right).*
 
 ---
 
