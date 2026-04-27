@@ -1,0 +1,102 @@
+<mxfile host="Electron">
+  <diagram name="SOC-Claw Architecture" id="socclaw">
+    <mxGraphModel dx="629" dy="412" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=42;fontStyle=1;fontColor=#0F172A;" value="SOC-Claw" vertex="1">
+          <mxGeometry height="56" width="400" x="600" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=15;fontColor=#64748B;" value="Multi-agent incident response. Three agents, one verifies the other, humans approve before anything fires." vertex="1">
+          <mxGeometry height="22" width="1200" x="200" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="eyebrow" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#94A3B8;letterSpacing=2;" value="vLLM · NVIDIA NEMOTRON · NEMOCLAW SANDBOX" vertex="1">
+          <mxGeometry height="20" width="800" x="400" y="102" as="geometry" />
+        </mxCell>
+        <mxCell id="sandbox" parent="1" style="rounded=1;arcSize=4;fillColor=#F8FAFF;strokeColor=#6366F1;strokeWidth=2.5;dashed=1;dashPattern=10 6;" value="" vertex="1">
+          <mxGeometry height="560" width="1280" x="40" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="sandboxLabel" parent="1" style="rounded=1;arcSize=20;fillColor=#6366F1;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;letterSpacing=1.2;" value="NEMOCLAW SANDBOX · NETWORK + FILESYSTEM + STEERING POLICY" vertex="1">
+          <mxGeometry height="24" width="380" x="60" y="128" as="geometry" />
+        </mxCell>
+        <mxCell id="alert" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CBD5E1;strokeWidth=1.5;verticalAlign=top;align=left;shadow=1;" value="&lt;div style=&quot;text-align:left;padding:6px 4px;&quot;&gt;&lt;div style=&quot;font-weight:bold;font-size:16px;color:#0F172A;&quot;&gt;Raw Alert&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#64748B;margin-top:4px;&quot;&gt;SIEM JSON&lt;br/&gt;(Splunk / Elastic)&lt;/div&gt;&lt;div style=&quot;font-family:monospace;font-size:10px;color:#475569;margin-top:14px;line-height:14px;&quot;&gt;id, timestamp,&lt;br/&gt;source_ip,&lt;br/&gt;hostname,&lt;br/&gt;rule, payload&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="170" x="70" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="triage" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#10B981;strokeWidth=2;verticalAlign=top;align=left;shadow=1;" value="&lt;div style=&quot;padding:6px 4px;&quot;&gt;&lt;div&gt;&lt;span style=&quot;font-weight:bold;font-size:17px;color:#0F172A;&quot;&gt;Triage Agent&lt;/span&gt; &lt;span style=&quot;background:#D1FAE5;color:#047857;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:bold;&quot;&gt;HAS TOOLS&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;font-size:12px;color:#64748B;margin-top:4px;&quot;&gt;Enrich + score severity&lt;/div&gt;&lt;div style=&quot;font-size:10px;font-weight:bold;color:#94A3B8;letter-spacing:1px;margin-top:14px;&quot;&gt;TOOLS&lt;/div&gt;&lt;div style=&quot;background:#ECFDF5;color:#047857;font-family:monospace;font-size:11px;padding:3px 6px;border-radius:4px;margin-top:4px;&quot;&gt;ip_reputation()&lt;/div&gt;&lt;div style=&quot;background:#ECFDF5;color:#047857;font-family:monospace;font-size:11px;padding:3px 6px;border-radius:4px;margin-top:3px;&quot;&gt;mitre_lookup()&lt;/div&gt;&lt;div style=&quot;background:#ECFDF5;color:#047857;font-family:monospace;font-size:11px;padding:3px 6px;border-radius:4px;margin-top:3px;&quot;&gt;asset_lookup()&lt;/div&gt;&lt;div style=&quot;font-size:10px;font-weight:bold;color:#94A3B8;letter-spacing:1px;margin-top:12px;&quot;&gt;OUTPUT&lt;/div&gt;&lt;div style=&quot;font-size:12px;color:#0F172A;margin-top:3px;&quot;&gt;&lt;b&gt;P1&lt;/b&gt; / P2 / P3 / P4&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#64748B;&quot;&gt;+ confidence, IOCs, MITRE&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="260" width="240" x="280" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="verifier" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#F59E0B;strokeWidth=2;verticalAlign=top;align=left;shadow=1;" value="&lt;div style=&quot;padding:6px 4px;&quot;&gt;&lt;div&gt;&lt;span style=&quot;font-weight:bold;font-size:17px;color:#0F172A;&quot;&gt;Verifier Agent&lt;/span&gt; &lt;span style=&quot;background:#FEF3C7;color:#B45309;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:bold;&quot;&gt;NO TOOLS&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;font-size:12px;color:#64748B;margin-top:4px;&quot;&gt;QA self-correction loop&lt;/div&gt;&lt;div style=&quot;font-size:10px;font-weight:bold;color:#94A3B8;letter-spacing:1px;margin-top:14px;&quot;&gt;CHECKLIST&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;margin-top:4px;&quot;&gt;✓ Evidence–severity alignment&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;&quot;&gt;✓ Reasoning completeness&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;&quot;&gt;✓ Logical consistency&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;&quot;&gt;✓ Bias check&lt;/div&gt;&lt;div style=&quot;font-size:10px;font-weight:bold;color:#94A3B8;letter-spacing:1px;margin-top:14px;&quot;&gt;VERDICT&lt;/div&gt;&lt;div style=&quot;font-size:12px;margin-top:3px;&quot;&gt;&lt;b style=&quot;color:#10B981;&quot;&gt;confirm&lt;/b&gt; · &lt;b style=&quot;color:#F59E0B;&quot;&gt;adjust&lt;/b&gt; · &lt;b style=&quot;color:#EF4444;&quot;&gt;flag&lt;/b&gt;&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#64748B;&quot;&gt;+10% accuracy lift in benchmark&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="260" width="240" x="560" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="response" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8B5CF6;strokeWidth=2;verticalAlign=top;align=left;shadow=1;" value="&lt;div style=&quot;padding:6px 4px;&quot;&gt;&lt;div&gt;&lt;span style=&quot;font-weight:bold;font-size:17px;color:#0F172A;&quot;&gt;Response Agent&lt;/span&gt; &lt;span style=&quot;background:#EDE9FE;color:#6D28D9;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:bold;&quot;&gt;NO TOOLS&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;font-size:12px;color:#64748B;margin-top:4px;&quot;&gt;Prioritized action plan&lt;/div&gt;&lt;div style=&quot;font-size:10px;font-weight:bold;color:#94A3B8;letter-spacing:1px;margin-top:14px;&quot;&gt;PLAN BY SEVERITY&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;margin-top:4px;&quot;&gt;&lt;b style=&quot;color:#DC2626;&quot;&gt;P1&lt;/b&gt; isolate + block + escalate + forensics&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;&quot;&gt;&lt;b style=&quot;color:#EA580C;&quot;&gt;P2&lt;/b&gt; block IOCs, ticket, notify owner&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;&quot;&gt;&lt;b style=&quot;color:#CA8A04;&quot;&gt;P3&lt;/b&gt; investigate, watchlist, follow-up&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;&quot;&gt;&lt;b style=&quot;color:#16A34A;&quot;&gt;P4&lt;/b&gt; log only, tune detection rule&lt;/div&gt;&lt;div style=&quot;font-size:10px;font-weight:bold;color:#94A3B8;letter-spacing:1px;margin-top:14px;&quot;&gt;OUTPUT&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;&quot;&gt;Ordered steps with reasoning,&lt;br/&gt;urgency, and approval gates&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="260" width="240" x="840" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="actions" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CBD5E1;strokeWidth=1.5;verticalAlign=top;shadow=1;" value="&lt;div style=&quot;padding:6px 4px;&quot;&gt;&lt;div style=&quot;font-weight:bold;font-size:14px;color:#0F172A;text-align:center;&quot;&gt;Action Tools&lt;/div&gt;&lt;div style=&quot;font-size:10px;color:#64748B;text-align:center;margin-top:4px;&quot;&gt;fire only after analyst approval&lt;/div&gt;&lt;div style=&quot;background:#F1F5F9;color:#334155;font-family:monospace;font-size:11px;padding:3px 6px;border-radius:4px;margin-top:14px;text-align:center;&quot;&gt;isolate_host()&lt;/div&gt;&lt;div style=&quot;background:#F1F5F9;color:#334155;font-family:monospace;font-size:11px;padding:3px 6px;border-radius:4px;margin-top:4px;text-align:center;&quot;&gt;block_ioc()&lt;/div&gt;&lt;div style=&quot;background:#F1F5F9;color:#334155;font-family:monospace;font-size:11px;padding:3px 6px;border-radius:4px;margin-top:4px;text-align:center;&quot;&gt;create_ticket()&lt;/div&gt;&lt;div style=&quot;background:#F1F5F9;color:#334155;font-family:monospace;font-size:11px;padding:3px 6px;border-radius:4px;margin-top:4px;text-align:center;&quot;&gt;escalate()&lt;/div&gt;&lt;div style=&quot;font-size:10px;color:#94A3B8;text-align:center;margin-top:14px;&quot;&gt;EDR · firewall ·&lt;br/&gt;ITSM · tier-3&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="260" width="160" x="1120" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="arr1" edge="1" parent="1" source="alert" style="endArrow=classic;html=1;strokeColor=#475569;strokeWidth=2.2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="triage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr2" edge="1" parent="1" source="triage" style="endArrow=classic;html=1;strokeColor=#475569;strokeWidth=2.2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="verifier">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr3" edge="1" parent="1" source="verifier" style="endArrow=classic;html=1;strokeColor=#475569;strokeWidth=2.2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="response">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr4" edge="1" parent="1" source="response" style="endArrow=classic;html=1;strokeColor=#DC2626;strokeWidth=2.2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;rounded=0;" target="actions" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="inferenceBand" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#ECFEFF;strokeColor=#06B6D4;strokeWidth=1.5;verticalAlign=top;shadow=1;" value="&lt;div style=&quot;padding:8px;&quot;&gt;&lt;div style=&quot;text-align:center;font-size:16px;font-weight:bold;color:#155E75;&quot;&gt;vLLM · NVIDIA Nemotron · Privacy Router&lt;/div&gt;&lt;div style=&quot;text-align:center;font-size:12px;color:#0E7490;margin-top:4px;&quot;&gt;Same model, different locations — the router controls where data goes, not which model runs.&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="800" x="280" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="localRoute" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A5F3FC;strokeWidth=1.5;verticalAlign=top;align=left;" value="&lt;div style=&quot;padding:8px 12px;&quot;&gt;&lt;div style=&quot;font-size:13px;font-weight:bold;color:#0E7490;&quot;&gt;LOCAL (sensitive)&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;margin-top:4px;&quot;&gt;Internal IPs, hostnames, alert payloads,&lt;br/&gt;PII, raw logs → on-host vLLM Nemotron&lt;/div&gt;&lt;div style=&quot;font-family:monospace;font-size:10px;color:#0891B2;margin-top:4px;&quot;&gt;host.openshell.internal:8000&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="370" x="300" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudRoute" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A5F3FC;strokeWidth=1.5;verticalAlign=top;align=left;" value="&lt;div style=&quot;padding:8px 12px;&quot;&gt;&lt;div style=&quot;font-size:13px;font-weight:bold;color:#0E7490;&quot;&gt;CLOUD (generic)&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#0F172A;margin-top:4px;&quot;&gt;MITRE descriptions, threat-actor TTPs,&lt;br/&gt;attack-pattern analysis → cloud Nemotron&lt;/div&gt;&lt;div style=&quot;font-family:monospace;font-size:10px;color:#0891B2;margin-top:4px;&quot;&gt;integrate.api.nvidia.com&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="80" width="370" x="690" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="iarr1" edge="1" parent="1" source="triage" style="endArrow=classic;html=1;strokeColor=#0891B2;strokeWidth=1.6;dashed=1;exitX=0.5;exitY=1;entryX=0.15;entryY=0.003;entryDx=0;entryDy=0;entryPerimeter=0;" target="inferenceBand">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="iarr2" edge="1" parent="1" source="verifier" style="endArrow=classic;html=1;strokeColor=#0891B2;strokeWidth=1.6;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="inferenceBand">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="iarr3" edge="1" parent="1" source="response" style="endArrow=classic;html=1;strokeColor=#0891B2;strokeWidth=1.6;dashed=1;exitX=0.5;exitY=1;entryX=0.85;entryY=0;" target="inferenceBand">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="analyst" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#EF4444;strokeWidth=2;verticalAlign=top;align=left;shadow=1;" value="&lt;div style=&quot;padding:6px 4px;&quot;&gt;&lt;div style=&quot;font-weight:bold;font-size:18px;color:#0F172A;text-align:center;&quot;&gt;Analyst&lt;/div&gt;&lt;div style=&quot;text-align:center;margin-top:4px;&quot;&gt;&lt;span style=&quot;background:#FEE2E2;color:#B91C1C;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:bold;&quot;&gt;HUMAN IN THE LOOP&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#64748B;text-align:center;margin-top:8px;&quot;&gt;AI plans, human decides,&lt;br/&gt;tools execute&lt;/div&gt;&lt;div style=&quot;font-size:10px;font-weight:bold;color:#94A3B8;letter-spacing:1px;margin-top:14px;&quot;&gt;PER-STEP DECISION&lt;/div&gt;&lt;div style=&quot;margin-top:6px;&quot;&gt;&lt;span style=&quot;background:#DCFCE7;color:#15803D;padding:6px 14px;border-radius:6px;font-weight:bold;font-size:12px;border:1px solid #16A34A;&quot;&gt;Approve&lt;/span&gt; &lt;span style=&quot;background:#FEE2E2;color:#B91C1C;padding:6px 14px;border-radius:6px;font-weight:bold;font-size:12px;border:1px solid #DC2626;&quot;&gt;Reject&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;font-size:10px;font-weight:bold;color:#94A3B8;letter-spacing:1px;margin-top:18px;&quot;&gt;NATURAL-LANGUAGE STEERING&lt;/div&gt;&lt;div style=&quot;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:8px;margin-top:6px;&quot;&gt;&lt;div style=&quot;font-size:11px;font-style:italic;color:#475569;&quot;&gt;&quot;This is a red-team&lt;br/&gt;exercise — re-evaluate.&quot;&lt;/div&gt;&lt;div style=&quot;font-size:10px;color:#94A3B8;margin-top:4px;&quot;&gt;→ all 3 agents re-run&lt;/div&gt;&lt;/div&gt;&lt;div style=&quot;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:6px;padding:8px;margin-top:14px;&quot;&gt;&lt;div style=&quot;font-size:11px;font-weight:bold;color:#991B1B;text-align:center;&quot;&gt;Why this matters&lt;/div&gt;&lt;div style=&quot;font-size:10px;color:#7F1D1D;margin-top:4px;&quot;&gt;Auto-isolating the wrong host is worse than the attack.&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="500" width="220" x="1340" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="planArrow" edge="1" parent="1" source="response" style="endArrow=classic;html=1;strokeColor=#475569;strokeWidth=2.2;exitX=1;exitY=0.3;entryX=-0.017;entryY=0.026;fontSize=10;fontStyle=1;fontColor=#475569;entryDx=0;entryDy=0;entryPerimeter=0;" target="analyst" value="PLAN">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1110" y="173" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="approvedArrow" edge="1" parent="1" source="analyst" style="endArrow=classic;html=1;strokeColor=#16A34A;strokeWidth=2.2;dashed=1;exitX=0;exitY=0.3;entryX=1;entryY=0.65;fontSize=10;fontStyle=1;fontColor=#16A34A;" target="actions" value="APPROVED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="steeringArrow" edge="1" parent="1" source="analyst" style="endArrow=classic;html=1;strokeColor=#94A3B8;strokeWidth=1.6;dashed=1;entryX=0.5;entryY=0;fontSize=11;fontColor=#64748B;fontStyle=2;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="triage" value="analyst steering → all agents re-evaluate">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1450" y="128" />
+              <mxPoint x="470" y="128" />
+            </Array>
+            <mxPoint x="1450" y="148" as="sourcePoint" />
+            <mxPoint x="400" y="178" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="stat1" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1F5F9;strokeColor=#E2E8F0;strokeWidth=1;verticalAlign=top;align=left;" value="&lt;div style=&quot;padding:14px 20px;&quot;&gt;&lt;div style=&quot;font-size:38px;font-weight:800;color:#0F172A;&quot;&gt;+10%&lt;/div&gt;&lt;div style=&quot;font-size:14px;font-weight:bold;color:#0F172A;margin-top:4px;&quot;&gt;accuracy lift from the Verifier loop&lt;/div&gt;&lt;div style=&quot;font-size:12px;color:#64748B;margin-top:6px;&quot;&gt;Triage alone ~78%, after Verifier ~88% across the 30-alert benchmark.&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="460" x="80" y="730" as="geometry" />
+        </mxCell>
+        <mxCell id="stat2" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1F5F9;strokeColor=#E2E8F0;strokeWidth=1;verticalAlign=top;align=left;" value="&lt;div style=&quot;padding:14px 20px;&quot;&gt;&lt;div style=&quot;font-size:38px;font-weight:800;color:#0F172A;&quot;&gt;1 of 3&lt;/div&gt;&lt;div style=&quot;font-size:14px;font-weight:bold;color:#0F172A;margin-top:4px;&quot;&gt;agents needs tools (Triage only)&lt;/div&gt;&lt;div style=&quot;font-size:12px;color:#64748B;margin-top:6px;&quot;&gt;Verifier and Response are pure inference — lower latency, fewer failure modes.&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="460" x="570" y="730" as="geometry" />
+        </mxCell>
+        <mxCell id="stat3" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1F5F9;strokeColor=#E2E8F0;strokeWidth=1;verticalAlign=top;align=left;" value="&lt;div style=&quot;padding:14px 20px;&quot;&gt;&lt;div style=&quot;font-size:38px;font-weight:800;color:#0F172A;&quot;&gt;0&lt;/div&gt;&lt;div style=&quot;font-size:14px;font-weight:bold;color:#0F172A;margin-top:4px;&quot;&gt;auto-execution. Ever.&lt;/div&gt;&lt;div style=&quot;font-size:12px;color:#64748B;margin-top:6px;&quot;&gt;Privacy router keeps SOC data on local Nemotron. Humans approve every action.&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="460" x="1060" y="730" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
