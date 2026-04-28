@@ -33,28 +33,11 @@ Same as [SETUP.md §1](SETUP.md) plus:
 
 If you're on a Brev Tier-4 launchable that ran `vLLM-hackathon-guide/launchable-configs/tier4-nemoclaw/setup.sh`, Docker + Node + NemoClaw bootstrap are already done.
 
-## 3. One-time code patch — make `utils.py` sandbox-aware
+## 3. Configuration via `.env`
 
-`get_client()` in [utils.py](utils.py) hardcodes `http://localhost:8000/v1` for the local route. From inside the sandbox container, `localhost` is the container itself, not the host where vLLM runs. NemoClaw exposes the host as `host.openshell.internal`, which is what `blueprint.yaml` already declares.
+Config is read from the environment via `python-dotenv` in [soc-claw/utils.py](soc-claw/utils.py). You should already have a host `.env` populated from `.env.example` — that's all that's needed for the host vLLM, the cloud route, and the model name.
 
-Apply this one-line change so the same code works in both modes:
-
-```python
-# soc-claw/utils.py — inside get_client()
-import os  # add at top of file if not present
-
-if route == "local":
-    return AsyncOpenAI(
-        base_url=os.environ.get(
-            "SOC_CLAW_LOCAL_VLLM_URL",
-            "http://localhost:8000/v1",
-        ),
-        api_key="not-needed",
-    )
-```
-
-- **Host-only mode** ([SETUP.md](SETUP.md)): no env var set → defaults to `localhost:8000`. Unchanged behavior.
-- **Sandbox mode** (this guide): `scripts/setup.sh` will export `SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1` for you on entry.
+Sandbox vs host: the only variable that differs between contexts is `SOC_CLAW_LOCAL_VLLM_URL`. From inside the sandbox container, `localhost` is the container itself — NemoClaw exposes the host as `host.openshell.internal`. [scripts/setup.sh](scripts/setup.sh) handles this for you: it copies your host `.env` into the staged workspace, strips any host value of `SOC_CLAW_LOCAL_VLLM_URL`, and writes `SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1` as the sandbox override. `load_dotenv()` picks it up automatically — no manual `export` required.
 
 ## 4. Start vLLM on the host
 
@@ -98,8 +81,9 @@ Successful run ends with a banner listing the four ways to drive the pipeline (T
 nemoclaw soc-claw connect
 
 # Inside the sandbox (one-time)
-export SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1
 pip install -r requirements.txt
+# Note: SOC_CLAW_LOCAL_VLLM_URL is already in /workspace/.env, written by
+# scripts/setup.sh during onboarding. load_dotenv() in utils.py picks it up.
 ```
 
 Then pick one:
@@ -167,7 +151,7 @@ If you want a tighter dev loop, consider mounting the host directory into the sa
 | `scripts/setup.sh` exits at "Docker is required" | Install Docker. Podman is detected but not supported by NemoClaw. |
 | `scripts/setup.sh` exits at "vLLM not reachable" | Start vLLM on the host first (§4). |
 | `nemoclaw: command not found` after install | Open a new shell or `source ~/.bashrc` so the install script's PATH update is picked up. |
-| `Connection refused` from inside the sandbox to `localhost:8000` | You skipped §3. `localhost` inside the sandbox isn't the host. Set `SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1`. |
+| `Connection refused` from inside the sandbox to `localhost:8000` | The sandbox `.env` is missing or stale. Re-run `bash scripts/setup.sh` from the host to regenerate `/workspace/.env` with `SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1`. |
 | `Connection refused` to `host.openshell.internal:8000` | vLLM died on the host, or NemoClaw's host-loopback alias isn't set. Check `nemoclaw status` and re-onboard. |
 | Cloud route 401 | Set `NVIDIA_API_KEY` on the host before `bash scripts/setup.sh` so it propagates into the sandbox env. |
 | Sandbox can't see new code | Re-run `bash scripts/setup.sh` (§8). |
@@ -183,8 +167,7 @@ cd SoC-Claw
 bash scripts/setup.sh                                      # terminal 2
 nemoclaw soc-claw connect
 
-# Inside sandbox
-export SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1
+# Inside sandbox (env vars already in /workspace/.env via setup.sh)
 pip install -r requirements.txt
-openclaw tui                  # or python3 ui/server.py / pipeline.py / benchmark/harness.py
+python3 ui/server.py          # or pipeline.py / benchmark/harness.py
 ```
