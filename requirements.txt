@@ -1,3 +1,10 @@
 # vLLM for GPU nvidia - uv pip install vllm --torch-backend=auto
 vLLM
 # uv pip install guidellm lm-eval
+
+openai>=1.30
+gradio>=4.0
+pyyaml
+fastapi
+uvicorn[standard]
+jinja2

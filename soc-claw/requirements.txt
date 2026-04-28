@@ -1,6 +1,0 @@
-openai>=1.30
-gradio>=4.0
-pyyaml
-fastapi
-uvicorn[standard]
-jinja2
