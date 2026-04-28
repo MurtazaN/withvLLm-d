@@ -8,6 +8,7 @@ verification effectiveness, and response plan quality.
 import asyncio
 import csv
 import json
+import os
 import statistics
 import sys
 import time
@@ -19,7 +20,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from pipeline import run_pipeline, load_alerts
 
 
-RESULTS_DIR = Path(__file__).parent / "results"
+# Output directory is environment-driven so the same code works on host,
+# in NemoClaw (where /workspace is readonly), and in production (where
+# results would land on a mounted volume or be uploaded to object storage).
+#   - Host dev:    defaults to soc-claw/benchmark/results/
+#   - Sandbox:     setup.sh writes BENCHMARK_OUTPUT_DIR=/sandbox/results
+#   - Production:  orchestrator injects a path on a writable volume
+RESULTS_DIR = Path(
+    os.environ.get(
+        "BENCHMARK_OUTPUT_DIR",
+        str(Path(__file__).parent / "results"),
+    )
+)
 
 
 def compute_percentile(values: list[float], p: float) -> float:
