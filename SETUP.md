@@ -30,7 +30,7 @@ Never commit secrets. Keep `.env` local.
 ## 2. Install Dependencies
 
 ```bash
-cd withvLLm-d
+cd SoC-Claw
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -115,7 +115,7 @@ Wait until you see `Uvicorn running on http://0.0.0.0:8000`.
 ## 6. Run SOC-Claw (Terminal 2)
 
 ```bash
-cd withvLLm-d/soc-claw
+cd SoC-Claw/soc-claw
 source ../.venv/bin/activate
 ```
 
@@ -142,7 +142,7 @@ Open `http://<your-ip>:7860` or use `share=True` for a public link.
 ## 7. Run Benchmark
 
 ```bash
-cd withvLLm-d/soc-claw
+cd SoC-Claw/soc-claw
 source ../.venv/bin/activate
 
 # All 30 alerts
@@ -157,7 +157,7 @@ Results saved to: `soc-claw/benchmark/results/run_<timestamp>.csv`
 ## 8. Data Integrity Check
 
 ```bash
-cd withvLLm-d
+cd SoC-Claw
 python3 -c "
 import json
 alerts = json.load(open('soc-claw/data/alerts.json'))
@@ -206,7 +206,7 @@ Mock response tools (`isolate_host`, `block_ioc`, `create_ticket`, `escalate`) s
 vllm serve nvidia/Nemotron-Mini-4B-Instruct --port 8000
 
 # 2. In terminal 2:
-cd withvLLm-d/soc-claw
+cd SoC-Claw/soc-claw
 python -m tools.ip_reputation          # test tools
 python benchmark/harness.py 3          # test 3 alerts
 python ui/server.py                    # launch UI

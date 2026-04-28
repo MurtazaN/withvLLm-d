@@ -76,7 +76,7 @@ curl -s http://localhost:8000/v1/models | head -c 200
 In a second terminal:
 
 ```bash
-cd withvLLm-d/soc-claw
+cd SoC-Claw/soc-claw
 bash setup.sh
 ```
 
@@ -152,7 +152,7 @@ Run `python3 pipeline.py` on a single alert and confirm the Triage Agent's respo
 `setup.sh` copies your working tree into the sandbox workspace. Edits to `agents/`, `tools/`, `pipeline.py`, `utils.py`, etc. on the host **do not** propagate automatically. After any change:
 
 ```bash
-# From the host, in withvLLm-d/soc-claw/
+# From the host, in SoC-Claw/soc-claw/
 bash setup.sh   # re-runs onboarding (idempotent) and re-stages the tree
 ```
 
@@ -179,7 +179,7 @@ If you want a tighter dev loop, consider mounting the host directory into the sa
 ```bash
 # Host
 vllm serve nvidia/Nemotron-Mini-4B-Instruct --port 8000   # terminal 1
-cd withvLLm-d/soc-claw
+cd SoC-Claw/soc-claw
 bash setup.sh                                              # terminal 2
 nemoclaw soc-claw connect
 

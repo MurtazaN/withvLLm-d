@@ -111,8 +111,8 @@ All data is cross-referenced: every alert hostname exists in asset inventory, ev
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/MurtazaN/withvLLm-d
-cd withvLLm-d/soc-claw
+git clone https://github.com/MurtazaN/SoC-Claw
+cd SoC-Claw/soc-claw
 pip install -r requirements.txt
 
 # 2. Start vLLM (terminal 1)
