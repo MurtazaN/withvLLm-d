@@ -1,7 +1,5 @@
 # SOC-Claw: Multi-Agent Incident Response Coordinator
 
-**Track 5 — Agentic Edge powered by NemoClaw (Deep Tech lane)**
-
 SOC analysts see 4,000 alerts per day. 95% are noise. Missing the 5% that matter costs $4.45M per breach. SOC-Claw solves this with a three-agent pipeline that triages, self-corrects, and plans response actions — with the human always in the loop.
 
 ## The Problem
@@ -11,7 +9,7 @@ Security Operations Centers are drowning in alerts. Manual triage is slow, error
 ## Architecture
 
 ```
-Raw Alert → Triage Agent (tools) → Verifier Agent (QA) → Response Agent (plan)
+Raw Alert → Triage Agent  → Verifier Agent (QA) → Response Agent (plan)
                                          ↓                       ↓
                                    Confirm/Adjust/Flag    Analyst approves steps
                                                                   ↓
@@ -26,16 +24,6 @@ Raw Alert → Triage Agent (tools) → Verifier Agent (QA) → Response Agent (p
 
 **Privacy routing:** Sensitive SOC data (internal IPs, hostnames, alert payloads) stays on local Nemotron inference via vLLM. Only generic threat intel queries route to cloud. Same model, different locations — the router controls where data goes, not which model runs.
 
-## Screenshots
-
-![Dashboard](assests/dashboard.png)
-*Dashboard: 30 synthetic SIEM alerts with severity badges, alert feed table, and "Run All 30" benchmark button.*
-
-![Alert Analysis](assests/soc-claw-ui.png)
-*Alert analysis: Triage & Verification (left), Technical Context with IP reputation, asset intelligence, and MITRE ATT&CK mapping (center), Response Plan with per-step approve/reject actions (right).*
-
-![30 Alert Benchmark](assests/30_alerts.png)
-*Benchmark — Run All 30: 30 alerts processed in 254.7s. Triage accuracy 76.7%, verified accuracy 63.3%. Per-alert results with ground truth, triage, verified severity, match status, and latency.*
 
 ---
 
@@ -49,6 +37,15 @@ Raw Alert → Triage Agent (tools) → Verifier Agent (QA) → Response Agent (p
 | Pipeline stages using tools | 1 of 3 (Triage only) |
 | Pure inference stages (fast) | 2 of 3 (Verifier + Response) |
 | Privacy routing | Sensitive data stays on local inference |
+
+![Dashboard](assests/dashboard.png)
+*Dashboard: 30 synthetic SIEM alerts with severity badges, alert feed table, and "Run All 30" benchmark button.*
+
+![Alert Analysis](assests/soc-claw-ui.png)
+*Alert analysis: Triage & Verification (left), Technical Context with IP reputation, asset intelligence, and MITRE ATT&CK mapping (center), Response Plan with per-step approve/reject actions (right).*
+
+![30 Alert Benchmark](assests/30_alerts.png)
+*Benchmark — Run All 30: 30 alerts processed in 254.7s. Triage accuracy 76.7%, verified accuracy 63.3%. Per-alert results with ground truth, triage, verified severity, match status, and latency.*
 
 ---
 
