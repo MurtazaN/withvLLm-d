@@ -1,6 +1,9 @@
-# vLLM for GPU nvidia - uv pip install vllm --torch-backend=auto
-vLLM
-# uv pip install guidellm lm-eval
+# SOC-Claw application dependencies.
+#
+# vLLM is intentionally NOT in this file. It is a host-only GPU runtime
+# with a CUDA-aware install path; install it separately on the host:
+#   uv pip install vllm --torch-backend=auto
+# See SETUP.md for the full host setup steps.
 
 openai>=1.30
 gradio>=4.0
@@ -8,3 +11,4 @@ pyyaml
 fastapi
 uvicorn[standard]
 jinja2
+python-dotenv>=1.0

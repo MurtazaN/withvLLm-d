@@ -1,13 +1,20 @@
 import hashlib
 import json
 import logging
+import os
 import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
+
+# Populate os.environ from a .env file if one is present. In production
+# (k8s, CI), env vars are injected by the orchestrator and this is a no-op.
+# The rest of this module reads from os.environ — same code, every env.
+load_dotenv()
 
 CONFIG_DIR = Path(__file__).parent / "config"
 logger = logging.getLogger("soc-claw")
@@ -82,20 +89,40 @@ def route_request(prompt: str) -> tuple[str, str]:
 
 
 def get_client(route: str = "local") -> AsyncOpenAI:
-    """Get an OpenAI-compatible async client for the given route."""
+    """Get an OpenAI-compatible async client for the given route.
+
+    URLs and credentials are read from the environment so the same code
+    runs on host, in NemoClaw, and in production unchanged.
+    """
     if route == "local":
         return AsyncOpenAI(
-            base_url="http://localhost:8000/v1",
-            api_key="not-needed",
-        )
-    else:
-        return AsyncOpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key="not-needed",
+            base_url=os.environ.get(
+                "SOC_CLAW_LOCAL_VLLM_URL",
+                "http://localhost:8000/v1",
+            ),
+            api_key=os.environ.get("OPENAI_API_KEY", "not-needed"),
         )
 
+    api_key = os.environ.get("NVIDIA_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Cloud route requested but NVIDIA_API_KEY is not set. "
+            "Either set it in your .env / orchestrator secrets, or "
+            "constrain the privacy router so no prompt routes to cloud."
+        )
+    return AsyncOpenAI(
+        base_url=os.environ.get(
+            "SOC_CLAW_CLOUD_URL",
+            "https://integrate.api.nvidia.com/v1",
+        ),
+        api_key=api_key,
+    )
 
-MODEL_NAME = "nvidia/Nemotron-Mini-4B-Instruct"
+
+MODEL_NAME = os.environ.get(
+    "SOC_CLAW_MODEL",
+    "nvidia/Nemotron-Mini-4B-Instruct",
+)
 
 
 def log_routing_decision(agent_name: str, route: str, reason: str, prompt: str):

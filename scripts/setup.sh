@@ -12,7 +12,11 @@
 
 set -euo pipefail
 
+# Resolve paths regardless of where the user invokes the script from.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SOC_CLAW_DIR="${REPO_ROOT}/soc-claw"
+
 SANDBOX_NAME="soc-claw"
 SANDBOX_WORKSPACE="$HOME/.nemoclaw/sandboxes/${SANDBOX_NAME}/workspace"
 
@@ -90,30 +94,30 @@ if command -v rsync &> /dev/null; then
         --exclude='benchmark/results/*.csv' \
         --exclude='.venv' \
         --exclude='.git' \
-        "${SCRIPT_DIR}/agents" \
-        "${SCRIPT_DIR}/tools" \
-        "${SCRIPT_DIR}/data" \
-        "${SCRIPT_DIR}/ui" \
-        "${SCRIPT_DIR}/benchmark" \
-        "${SCRIPT_DIR}/config" \
+        "${SOC_CLAW_DIR}/agents" \
+        "${SOC_CLAW_DIR}/tools" \
+        "${SOC_CLAW_DIR}/data" \
+        "${SOC_CLAW_DIR}/ui" \
+        "${SOC_CLAW_DIR}/benchmark" \
+        "${SOC_CLAW_DIR}/config" \
         "${SANDBOX_WORKSPACE}/"
-    cp "${SCRIPT_DIR}/pipeline.py" \
-       "${SCRIPT_DIR}/utils.py" \
-       "${SCRIPT_DIR}/requirements.txt" \
-       "${SCRIPT_DIR}/blueprint.yaml" \
+    cp "${SOC_CLAW_DIR}/pipeline.py" \
+       "${SOC_CLAW_DIR}/utils.py" \
+       "${SOC_CLAW_DIR}/blueprint.yaml" \
+       "${REPO_ROOT}/requirements.txt" \
        "${SANDBOX_WORKSPACE}/"
 else
-    cp -r "${SCRIPT_DIR}/agents" \
-          "${SCRIPT_DIR}/tools" \
-          "${SCRIPT_DIR}/data" \
-          "${SCRIPT_DIR}/ui" \
-          "${SCRIPT_DIR}/benchmark" \
-          "${SCRIPT_DIR}/config" \
+    cp -r "${SOC_CLAW_DIR}/agents" \
+          "${SOC_CLAW_DIR}/tools" \
+          "${SOC_CLAW_DIR}/data" \
+          "${SOC_CLAW_DIR}/ui" \
+          "${SOC_CLAW_DIR}/benchmark" \
+          "${SOC_CLAW_DIR}/config" \
           "${SANDBOX_WORKSPACE}/"
-    cp "${SCRIPT_DIR}/pipeline.py" \
-       "${SCRIPT_DIR}/utils.py" \
-       "${SCRIPT_DIR}/requirements.txt" \
-       "${SCRIPT_DIR}/blueprint.yaml" \
+    cp "${SOC_CLAW_DIR}/pipeline.py" \
+       "${SOC_CLAW_DIR}/utils.py" \
+       "${SOC_CLAW_DIR}/blueprint.yaml" \
+       "${REPO_ROOT}/requirements.txt" \
        "${SANDBOX_WORKSPACE}/"
     find "${SANDBOX_WORKSPACE}" -type d -name '__pycache__' -prune -exec rm -rf {} +
     find "${SANDBOX_WORKSPACE}" -type f -name '*.pyc' -delete

@@ -36,24 +36,28 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip wheel
 
-# Root dependencies (vLLM)
+# Application dependencies (works on host AND inside the sandbox)
 pip install -r requirements.txt
 
-# SOC-Claw app dependencies
-pip install -r soc-claw/requirements.txt
+# Host-only: vLLM is a GPU runtime with a CUDA-aware install path,
+# so it is installed separately and intentionally NOT in requirements.txt.
+uv pip install vllm --torch-backend=auto
+# (or: pip install vllm --extra-index-url https://download.pytorch.org/whl/cu121)
 ```
 
 ### Installed packages
 
-**Root** (`requirements.txt`): `vLLM`
-
-**SOC-Claw** (`soc-claw/requirements.txt`):
+**Application** (`requirements.txt`):
 - `openai>=1.30`
 - `gradio>=4.0`
 - `pyyaml`
 - `fastapi`
 - `uvicorn[standard]`
 - `jinja2`
+- `python-dotenv>=1.0`
+
+**Host-only runtime** (installed separately):
+- `vllm` (CUDA-aware)
 
 ## 3. Models
 
