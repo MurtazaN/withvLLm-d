@@ -37,7 +37,6 @@ assests/
 main.html
 README.md
 SETUP.md
-setup_nemo.md
 initial_plan.md
 
 # Setup scripts run on the host, not in the image

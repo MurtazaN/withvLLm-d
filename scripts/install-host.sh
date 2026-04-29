@@ -57,10 +57,9 @@ if ! python -c "import vllm" &>/dev/null; then
     #   - transformers: 5.x renamed PreTrainedTokenizerBase → TokenizersBackend
     #     and removed all_special_tokens_extended, breaking vllm 0.10.2's
     #     tokenizer wrapper. 4.51+ has the qwen2_5_omni module vllm imports.
-    # On a host with CUDA 13 driver (or a Brev tier4-nemoclaw launchable),
-    # swap both lines for: 
-    # uv pip install vllm --torch-backend=auto
-    # uv pip install vllm --torch-backend=auto    # cu13 path — needs driver >= ~580
+    # On a host with CUDA 13 driver (≥ 580), swap both lines for:
+    #   uv pip install vllm --torch-backend=auto
+    # which picks the cu13 wheels and current transformers.
     uv pip install "vllm==0.10.2" --torch-backend=cu126
     uv pip install "transformers>=4.51,<5.0"
 else
