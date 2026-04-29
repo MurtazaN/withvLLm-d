@@ -21,7 +21,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOC_CLAW_DIR="${REPO_ROOT}/soc-claw"
 
-SANDBOX_NAME="soc-claw"
+# NemoClaw v0.0.7-17 (the version baked into Brev's NemoClaw launchable as of
+# 2026-04-07) doesn't support `nemoclaw onboard --name <X>`; the default
+# sandbox is always created as "nemoclaw". Newer NemoClaw (v0.0.30+ via the
+# nvidia.com/nemoclaw.sh installer) adds --name. Until the launchable bumps
+# its baked CLI, we use the default name to keep paths aligned with what the
+# CLI actually produces on disk (~/.nemoclaw/sandboxes/nemoclaw/...).
+SANDBOX_NAME="nemoclaw"
 SANDBOX_WORKSPACE="$HOME/.nemoclaw/sandboxes/${SANDBOX_NAME}/workspace"
 
 echo "============================================="
@@ -130,10 +136,12 @@ cat <<EOF
 
 EOF
 echo "[4/4] Onboarding NemoClaw sandbox '${SANDBOX_NAME}' from Dockerfile.sandbox..."
+# Note: --name is intentionally omitted (see SANDBOX_NAME comment above).
+# The CLI defaults to "nemoclaw" and that's what we expect on disk.
 NEMOCLAW_NON_INTERACTIVE=1 \
 NEMOCLAW_ACCEPT_THIRD_PARTY_SOFTWARE=1 \
 COMPATIBLE_API_KEY=dummy \
-    nemoclaw onboard --from "${DOCKERFILE_PATH}" --name "${SANDBOX_NAME}"
+    nemoclaw onboard --from "${DOCKERFILE_PATH}"
 
 # --- Stage soc-claw into the sandbox workspace ---
 echo "Staging soc-claw project into ${SANDBOX_WORKSPACE}..."
