@@ -69,12 +69,24 @@ curl -s http://localhost:8000/v1/models | head -c 200
 bash scripts/setup.sh
 ```
 
-`scripts/setup.sh` is idempotent — re-running it now skips the host bootstrap (already done) and proceeds with: Docker check, Node 20+ install, `nemoclaw` CLI install, vLLM reachability check, `nemoclaw onboard`, source-tree staging into `~/.nemoclaw/sandboxes/soc-claw/workspace/`, and generation of a sandbox-side `.env` containing:
+`scripts/setup.sh` is idempotent — re-running it now skips the host bootstrap (already done) and proceeds with: Docker check, Node 20+ install, `nemoclaw` CLI install, vLLM reachability check, `nemoclaw onboard`, source-tree staging into `~/.nemoclaw/sandboxes/soc-claw/workspace/`, and generation of a sandbox-side `.env`.
+
+**`nemoclaw onboard` is interactive on first run** — its CLI does not expose flags or env vars for the provider/endpoint/model prompts (verified against agentVersion 2026.4.9). The script prints exactly what to type before the prompts fire:
+
+| Prompt | Answer |
+|---|---|
+| Inference option | `3` (Other OpenAI-compatible endpoint) |
+| Endpoint URL | `http://localhost:8000/v1` |
+| Model | the value of `$SOC_CLAW_MODEL` (default `nvidia/Nemotron-Mini-4B-Instruct`) |
+| API key | `dummy` (vLLM does not check it) |
+| Policy preset | `balanced` |
+
+Subsequent runs reuse the existing profile and skip the prompts. After any source change on the host, re-run this command to re-stage.
+
+The sandbox-side `.env` written at the end contains:
 
 - `SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1` — host-loopback alias so the sandboxed app can reach the host's vLLM.
 - `BENCHMARK_OUTPUT_DIR=/sandbox/results` — `/workspace` is read-only inside the sandbox; the harness writes CSVs to a writable path declared in `blueprint.yaml`.
-
-After any source change on the host, re-run this command to re-stage.
 
 ## 7. Connect and run
 
@@ -82,14 +94,23 @@ After any source change on the host, re-run this command to re-stage.
 nemoclaw soc-claw connect
 ```
 
-Inside the sandbox shell:
+Inside the sandbox shell, create a venv on a writable path (`/workspace` is readonly; `/sandbox` is in `write_paths`) and install deps the first time only:
 
 ```bash
+python3 -m venv /sandbox/.venv
+source /sandbox/.venv/bin/activate
 pip install -r requirements.txt
 python3 ui/server.py            # FastAPI dashboard on :7860
 # alternatives:
 # python3 pipeline.py            # single-alert end-to-end
 # python3 benchmark/harness.py   # 30-alert benchmark → /sandbox/results
+```
+
+On each subsequent `nemoclaw soc-claw connect`, only re-source the venv:
+
+```bash
+source /sandbox/.venv/bin/activate
+python3 ui/server.py
 ```
 
 Env vars come from `/workspace/.env`; `load_dotenv()` in [soc-claw/utils.py](soc-claw/utils.py) picks them up automatically.
@@ -122,6 +143,7 @@ touch /tmp/ok && rm /tmp/ok && echo OK
 | `scripts/setup.sh` exits at "Docker is required" | Install Docker. Podman is not supported by NemoClaw. |
 | `scripts/setup.sh` exits at "vLLM not reachable" | Step 5 didn't succeed. Check vLLM logs in terminal 1, then re-run `scripts/setup.sh`. |
 | `nemoclaw: command not found` after install | Open a new shell so the install script's PATH update propagates. |
+| `error: externally-managed-environment` on `pip install` inside the sandbox | PEP 668 (Debian). Create a venv on a writable path: `python3 -m venv /sandbox/.venv && source /sandbox/.venv/bin/activate`, then `pip install -r requirements.txt`. |
 | `Connection refused` to `localhost:8000` from inside the sandbox | The sandbox `.env` is missing or stale. Re-run `bash scripts/setup.sh` from the host to regenerate `/workspace/.env`. |
 | `Connection refused` to `host.openshell.internal:8000` | vLLM died on the host, or NemoClaw's host-loopback alias isn't set. Check `nemoclaw status` and re-onboard. |
 | Cloud route 401 | `NVIDIA_API_KEY` was missing or expired when `scripts/setup.sh` ran. Update host `.env`, re-onboard. |

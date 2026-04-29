@@ -50,8 +50,19 @@ echo "[4/5] Installing application dependencies..."
 uv pip install -r "${REPO_ROOT}/requirements.txt"
 
 if ! python -c "import vllm" &>/dev/null; then
-    echo "       Installing vLLM (CUDA-aware)..."
-    uv pip install vllm --torch-backend=auto
+    echo "       Installing vLLM 0.10.2 (cu126) + compatible transformers..."
+    # Why these pins (verified working on Brev Instance A6000 48 GiB "VM Mode w/ Jupyter", driver 570.x):
+    #   - vllm: latest (0.11+) ships only CUDA-13 wheels, but the driver caps
+    #     at CUDA 12.8 → must pin to last cu126-compatible line.
+    #   - transformers: 5.x renamed PreTrainedTokenizerBase → TokenizersBackend
+    #     and removed all_special_tokens_extended, breaking vllm 0.10.2's
+    #     tokenizer wrapper. 4.51+ has the qwen2_5_omni module vllm imports.
+    # On a host with CUDA 13 driver (or a Brev tier4-nemoclaw launchable),
+    # swap both lines for: 
+    # uv pip install vllm --torch-backend=auto
+    # uv pip install vllm --torch-backend=auto    # cu13 path — needs driver >= ~580
+    uv pip install "vllm==0.10.2" --torch-backend=cu126
+    uv pip install "transformers>=4.51,<5.0"
 else
     echo "       vLLM already importable in venv."
 fi

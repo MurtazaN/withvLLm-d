@@ -83,13 +83,27 @@ fi
 echo "  vLLM detected at http://localhost:8000/v1"
 
 # --- Onboard NemoClaw with the soc-claw profile ---
+# `nemoclaw onboard` runs interactive prompts for provider / endpoint / model /
+# policies. Its --non-interactive flag does NOT cover these prompts (verified
+# 2026-04-29 against agentVersion 2026.4.9), and there are no CLI flags for
+# the values either. Only COMPATIBLE_API_KEY is honored from the environment.
+# Document the expected answers here so the operator can paste them straight
+# in. Re-running with --resume picks up where you left off.
+cat <<'EOF'
+
+  ----------------------------------------------------------------
+  NemoClaw onboarding is INTERACTIVE on first run. When prompted:
+
+    Inference option:   3  (Other OpenAI-compatible endpoint)
+    Endpoint URL:       http://localhost:8000/v1
+    Model:              ${SOC_CLAW_MODEL:-nvidia/Nemotron-Mini-4B-Instruct}
+    API key:            dummy   (vLLM does not check it)
+    Policy preset:      balanced
+  ----------------------------------------------------------------
+
+EOF
 echo "[4/4] Onboarding NemoClaw sandbox '${SANDBOX_NAME}'..."
-NEMOCLAW_PROVIDER=custom \
-NEMOCLAW_ENDPOINT_URL=http://localhost:8000/v1 \
-NEMOCLAW_MODEL=nvidia/Nemotron-Mini-4B-Instruct \
-COMPATIBLE_API_KEY=dummy \
-NEMOCLAW_PREFERRED_API=openai-completions \
-nemoclaw onboard --non-interactive --name "${SANDBOX_NAME}"
+COMPATIBLE_API_KEY=dummy nemoclaw onboard --name "${SANDBOX_NAME}"
 
 # --- Stage soc-claw into the sandbox workspace ---
 echo "Staging soc-claw project into ${SANDBOX_WORKSPACE}..."
