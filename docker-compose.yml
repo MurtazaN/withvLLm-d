@@ -1,0 +1,43 @@
+# SOC-Claw — local & dev orchestration.
+#
+# vLLM runs on the host (see scripts/run-host-vllm.sh). The app reaches it
+# via host.docker.internal:8000. On Linux, extra_hosts maps that name to
+# the host gateway; on Mac/Windows Docker Desktop already resolves it.
+#
+# Usage:
+#   docker compose up                                          # app on :7860
+#   docker compose --profile benchmark run --rm benchmark 5    # 5-alert run
+
+services:
+  app:
+    build: .
+    image: soc-claw:dev
+    container_name: soc-claw-app
+    ports:
+      - "7860:7860"
+    env_file:
+      - .env
+    environment:
+      SOC_CLAW_LOCAL_VLLM_URL: ${SOC_CLAW_LOCAL_VLLM_URL:-http://host.docker.internal:8000/v1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./soc-claw/benchmark/results:/app/benchmark/results
+    restart: unless-stopped
+
+  benchmark:
+    build: .
+    image: soc-claw:dev
+    container_name: soc-claw-benchmark
+    profiles: ["benchmark"]
+    env_file:
+      - .env
+    environment:
+      SOC_CLAW_LOCAL_VLLM_URL: ${SOC_CLAW_LOCAL_VLLM_URL:-http://host.docker.internal:8000/v1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./soc-claw/benchmark/results:/app/benchmark/results
+    entrypoint: ["python", "benchmark/harness.py"]
+    command: ["30"]
+    restart: "no"
