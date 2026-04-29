@@ -75,7 +75,6 @@ soc-claw/
 │   ├── templates/index.html     # Red Hat-themed HTML interface
 │   └── app.py                   # Gradio analyst interface (alternative)
 ├── config/
-│   ├── nemoclaw_policy.yaml     # NemoClaw sandbox egress whitelist
 │   └── privacy_routes.yaml      # Privacy routing rules
 ├── pipeline.py                  # Orchestrator: Triage → Verifier → Response
 ├── utils.py                     # Shared: JSON extraction, privacy router, LLM client
@@ -110,20 +109,23 @@ All data is cross-referenced: every alert hostname exists in asset inventory, ev
 ## Quick Start
 
 ```bash
-# 1. Clone and install
+# 1. Clone + configure
 git clone https://github.com/MurtazaN/SoC-Claw
-cd SoC-Claw/soc-claw
-pip install -r requirements.txt
+cd SoC-Claw
+cp .env.example .env   # set HF_TOKEN
 
-# 2. Start vLLM (terminal 1)
-vllm serve nvidia/Nemotron-Mini-4B-Instruct --port 8000
+# 2. Host bootstrap (uv, venv, vLLM)
+bash scripts/install-host.sh
 
-# 3. Run the UI (terminal 2)
-python ui/server.py
+# 3. Start vLLM (terminal 1)
+bash scripts/run-host-vllm.sh
+
+# 4. Build + start the app (terminal 2)
+bash scripts/setup.sh
 # Open http://localhost:7860
 
-# 4. Or run the benchmark
-python benchmark/harness.py
+# 5. Or run the benchmark
+docker compose --profile benchmark run --rm benchmark 30
 ```
 
-See [SETUP.md](SETUP.md) for full setup guide including GPU requirements, model options, and troubleshooting.
+See [SETUP.md](SETUP.md) for full setup including GPU requirements, env vars, and troubleshooting.
