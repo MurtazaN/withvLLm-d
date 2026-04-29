@@ -1,13 +1,17 @@
 #!/bin/bash
 # =============================================================================
-# SOC-Claw — NemoClaw onboarding script (Track 5: Agentic Edge)
-# Installs NemoClaw if needed, onboards a sandbox named "soc-claw" against
-# the local vLLM server, and stages the soc-claw project tree into the
-# sandbox workspace so it can be driven via `openclaw tui`.
+# SOC-Claw — NemoClaw onboarding.
 #
-# Assumes the Brev launchable (vLLM-hackathon-guide/launchable-configs/
-# tier4-nemoclaw/setup.sh) already ran: Docker installed, Node 20, vLLM
-# pip deps, model weights at /models/, and start_vllm_server.sh staged.
+# Composable scripts (Option B):
+#   scripts/install-host.sh   — host bootstrap (uv, venv, vLLM, deps, .env)
+#   scripts/setup.sh          — calls install-host.sh, then onboards NemoClaw
+#
+# This script:
+#   1. Runs scripts/install-host.sh (idempotent; may exit asking you to fill .env)
+#   2. Verifies Docker / Node 20+ / nemoclaw CLI
+#   3. Verifies vLLM is reachable on :8000 (start it before re-running)
+#   4. Onboards a NemoClaw sandbox profile and stages the source tree
+#   5. Writes the sandbox-side .env with host-loopback URL + benchmark dir
 # =============================================================================
 
 set -euo pipefail
@@ -25,17 +29,23 @@ echo "  SOC-Claw — NemoClaw onboarding"
 echo "============================================="
 
 # --- Docker is required by NemoClaw's OpenShell sandbox ---
+# Checked before host bootstrap so we fail fast on a system that can't
+# eventually run a sandbox at all (no point installing vLLM etc. first).
 if ! command -v docker &> /dev/null; then
     echo "✗ Docker is required for NemoClaw (OpenShell sandbox dependency)."
     echo ""
     if command -v podman &> /dev/null; then
         echo "  Podman is installed but NemoClaw does not support it."
-        echo "  See vLLM-hackathon-guide/docs/PODMAN-NOTES.md (NemoClaw section)."
     fi
     echo "  Install Docker:"
     echo "    https://docs.docker.com/engine/install/ubuntu/"
     exit 1
 fi
+
+# --- Run the host bootstrap (uv, venv, vLLM, app deps, .env) ---
+# install-host.sh exits non-zero (and tells the user to edit .env) on the
+# first run if .env doesn't already exist; that propagates here via -e.
+bash "${SCRIPT_DIR}/install-host.sh"
 
 # --- Node 20+ is required by NemoClaw ---
 if ! command -v node &> /dev/null; then
@@ -159,7 +169,6 @@ echo "  Inside the sandbox (one-time):"
 echo "    pip install -r requirements.txt"
 echo ""
 echo "  Drive the pipeline:"
-echo "    openclaw tui                     # interactive TUI"
 echo "    python3 ui/server.py             # FastAPI dashboard on :7860"
 echo "    python3 pipeline.py              # single-alert run"
 echo "    python3 benchmark/harness.py     # full 30-alert benchmark"

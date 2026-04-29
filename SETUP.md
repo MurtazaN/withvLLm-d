@@ -31,19 +31,12 @@ Never commit secrets. Keep `.env` local.
 
 ```bash
 cd SoC-Claw
-
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip wheel
-
-# Application dependencies (works on host AND inside the sandbox)
-pip install -r requirements.txt
-
-# Host-only: vLLM is a GPU runtime with a CUDA-aware install path,
-# so it is installed separately and intentionally NOT in requirements.txt.
-uv pip install vllm --torch-backend=auto
-# (or: pip install vllm --extra-index-url https://download.pytorch.org/whl/cu121)
+bash scripts/install-host.sh
 ```
+
+[scripts/install-host.sh](scripts/install-host.sh) installs `uv`, a managed Python 3.11, the project venv at `.venv/`, application deps from [requirements.txt](requirements.txt), and vLLM (CUDA-aware via `uv pip install vllm --torch-backend=auto`). It is idempotent. On first run, if `.env` does not exist, the script copies it from `.env.example` and exits, asking you to populate `HF_TOKEN` (and optionally `NVIDIA_API_KEY`) before re-running.
+
+The same script is invoked by [scripts/setup.sh](scripts/setup.sh) for the NemoClaw flow ([setup_nemo.md](setup_nemo.md)) — host-only and sandboxed deployments share one host-bootstrap path.
 
 ### Installed packages
 
@@ -56,7 +49,7 @@ uv pip install vllm --torch-backend=auto
 - `jinja2`
 - `python-dotenv>=1.0`
 
-**Host-only runtime** (installed separately):
+**Host-only runtime** (installed by `install-host.sh`):
 - `vllm` (CUDA-aware)
 
 ## 3. Models
