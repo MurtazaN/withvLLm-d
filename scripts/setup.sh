@@ -90,6 +90,11 @@ echo "  vLLM detected at http://localhost:8000/v1"
 # NEMOCLAW_NON_INTERACTIVE=1 suppresses the credential summary prompt. Other
 # prompts (provider type / endpoint / model / policy preset) may still fire on
 # first run; expected answers are listed below for paste-in convenience.
+#
+# NEMOCLAW_ACCEPT_THIRD_PARTY_SOFTWARE=1 acknowledges the third-party software
+# notice. The notice fires unconditionally on first onboard and blocks under
+# non-interactive mode (no TTY to type 'yes'); the env var is the documented
+# scripted equivalent of `--yes-i-accept-third-party-software`.
 DOCKERFILE_PATH="${REPO_ROOT}/Dockerfile.sandbox"
 if [ ! -f "${DOCKERFILE_PATH}" ]; then
     echo "✗ Dockerfile.sandbox not found at ${DOCKERFILE_PATH}." >&2
@@ -125,7 +130,9 @@ cat <<EOF
 
 EOF
 echo "[4/4] Onboarding NemoClaw sandbox '${SANDBOX_NAME}' from Dockerfile.sandbox..."
-NEMOCLAW_NON_INTERACTIVE=1 COMPATIBLE_API_KEY=dummy \
+NEMOCLAW_NON_INTERACTIVE=1 \
+NEMOCLAW_ACCEPT_THIRD_PARTY_SOFTWARE=1 \
+COMPATIBLE_API_KEY=dummy \
     nemoclaw onboard --from "${DOCKERFILE_PATH}" --name "${SANDBOX_NAME}"
 
 # --- Stage soc-claw into the sandbox workspace ---
