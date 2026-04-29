@@ -138,7 +138,7 @@ EOF
 echo "[4/4] Onboarding NemoClaw sandbox '${SANDBOX_NAME}' from Dockerfile.sandbox..."
 # Note: --name is intentionally omitted (see SANDBOX_NAME comment above).
 # The CLI defaults to "nemoclaw" and that's what we expect on disk.
-NEMOCLAW_NON_INTERACTIVE=1 \
+# NEMOCLAW_NON_INTERACTIVE=1 \
 NEMOCLAW_ACCEPT_THIRD_PARTY_SOFTWARE=1 \
 COMPATIBLE_API_KEY=dummy \
     nemoclaw onboard --from "${DOCKERFILE_PATH}"
