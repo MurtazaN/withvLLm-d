@@ -83,27 +83,50 @@ fi
 echo "  vLLM detected at http://localhost:8000/v1"
 
 # --- Onboard NemoClaw with the soc-claw profile ---
-# `nemoclaw onboard` runs interactive prompts for provider / endpoint / model /
-# policies. Its --non-interactive flag does NOT cover these prompts (verified
-# 2026-04-29 against agentVersion 2026.4.9), and there are no CLI flags for
-# the values either. Only COMPATIBLE_API_KEY is honored from the environment.
-# Document the expected answers here so the operator can paste them straight
-# in. Re-running with --resume picks up where you left off.
-cat <<'EOF'
+# Build the sandbox image from Dockerfile.sandbox at the repo root. NemoClaw
+# bakes our source + pinned deps into the image at build time, so the sandbox
+# starts with everything in place — no runtime git clone or pip install dance.
+#
+# NEMOCLAW_NON_INTERACTIVE=1 suppresses the credential summary prompt. Other
+# prompts (provider type / endpoint / model / policy preset) may still fire on
+# first run; expected answers are listed below for paste-in convenience.
+DOCKERFILE_PATH="${REPO_ROOT}/Dockerfile.sandbox"
+if [ ! -f "${DOCKERFILE_PATH}" ]; then
+    echo "✗ Dockerfile.sandbox not found at ${DOCKERFILE_PATH}." >&2
+    exit 1
+fi
+
+# Discover the host VM's primary LAN IP so the gateway container can reach
+# the host's vLLM. `localhost` is wrong here — it would resolve to the
+# gateway's own loopback, not the host VM. host.docker.internal works on
+# some Docker setups but not all; the LAN IP is the safest cross-platform
+# choice. Empty fallback prints a placeholder so the operator is aware.
+HOST_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+HOST_IP="${HOST_IP:-<host-vm-ip>}"
+
+cat <<EOF
 
   ----------------------------------------------------------------
-  NemoClaw onboarding is INTERACTIVE on first run. When prompted:
+  NemoClaw onboarding may prompt you. The answers are:
 
     Inference option:   3  (Other OpenAI-compatible endpoint)
-    Endpoint URL:       http://localhost:8000/v1
-    Model:              ${SOC_CLAW_MODEL:-nvidia/Nemotron-Mini-4B-Instruct}
+    Endpoint URL:       http://${HOST_IP}:8000/v1
+                        (or http://host.docker.internal:8000/v1 if the
+                        gateway can resolve it — try the IP first)
+    Model:              nvidia/Nemotron-Mini-4B-Instruct
     API key:            dummy   (vLLM does not check it)
     Policy preset:      balanced
+
+  Why the host IP and not 'localhost': during onboarding NemoClaw stores
+  this URL in the gateway container, which uses it to forward inference
+  traffic. From inside the gateway, 'localhost' is the gateway itself —
+  not the host VM where vLLM runs. Use the host VM's LAN IP instead.
   ----------------------------------------------------------------
 
 EOF
-echo "[4/4] Onboarding NemoClaw sandbox '${SANDBOX_NAME}'..."
-COMPATIBLE_API_KEY=dummy nemoclaw onboard --name "${SANDBOX_NAME}"
+echo "[4/4] Onboarding NemoClaw sandbox '${SANDBOX_NAME}' from Dockerfile.sandbox..."
+NEMOCLAW_NON_INTERACTIVE=1 COMPATIBLE_API_KEY=dummy \
+    nemoclaw onboard --from "${DOCKERFILE_PATH}" --name "${SANDBOX_NAME}"
 
 # --- Stage soc-claw into the sandbox workspace ---
 echo "Staging soc-claw project into ${SANDBOX_WORKSPACE}..."

@@ -17,7 +17,10 @@
 # of this spike.
 # =============================================================================
 
-ARG OPENCLAW_BASE=ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest
+# Pin to the same image digest NemoClaw's upstream blueprint references.
+# Override via `--build-arg OPENCLAW_BASE=...` when bumping is needed.
+# Source: github.com/NVIDIA/NemoClaw/blob/main/nemoclaw-blueprint/blueprint.yaml
+ARG OPENCLAW_BASE=ghcr.io/nvidia/openshell-community/sandboxes/openclaw@sha256:b3d832b596ab6b7184a9dcb4ae93337ca32851a4f93b00765cc12de26baa3a9a
 FROM ${OPENCLAW_BASE}
 
 # --- Build-time installation runs as root ---
@@ -27,8 +30,8 @@ WORKDIR /opt/soc-claw
 
 # Install dependencies first so this layer caches when only source changes.
 # vLLM is intentionally NOT installed here — vLLM runs on the host, not in
-# the sandbox. The sandbox only needs the openai client and friends to call
-# the host's vLLM via host.openshell.internal:8000.
+# the sandbox. The sandbox only needs openai/fastapi/dotenv to call vLLM
+# through NemoClaw's gateway at https://inference.local/v1 (set below).
 COPY requirements.txt /opt/soc-claw/requirements.txt
 RUN python3 -m venv /opt/soc-claw/.venv \
     && /opt/soc-claw/.venv/bin/pip install --upgrade pip wheel \
@@ -38,23 +41,30 @@ RUN python3 -m venv /opt/soc-claw/.venv \
 # layer above.
 COPY soc-claw/ /opt/soc-claw/
 
-# Make /opt/soc-claw world-readable so the unprivileged sandbox user can
-# import code at runtime. /opt is system-owned and treated read-only by
-# Landlock — sandboxed code cannot tamper with its own image.
-RUN chmod -R a+rX /opt/soc-claw
-
-# Pre-create the runtime state directory under /sandbox/.openclaw-data/.
-# That subtree is the documented "agent/plugin state" path and survives
-# `nemoclaw <name> rebuild` per the workspace-files reference.
-RUN mkdir -p /sandbox/.openclaw-data/soc-claw/results \
+# Post-COPY filesystem setup, merged into one layer:
+#   1. Make /opt/soc-claw world-readable. The sandbox user runs our code at
+#      runtime; /opt is system-owned and treated read-only by Landlock, so
+#      sandboxed code cannot tamper with its own image.
+#   2. Pre-create the runtime state directory under /sandbox/.openclaw-data/.
+#      That subtree is the documented "agent/plugin state" path and survives
+#      `nemoclaw <name> rebuild` per the workspace-files reference.
+RUN chmod -R a+rX /opt/soc-claw \
+    && mkdir -p /sandbox/.openclaw-data/soc-claw/results \
     && chown -R sandbox:sandbox /sandbox/.openclaw-data/soc-claw
 
 # --- Bake non-secret runtime config ---
-# host.openshell.internal is NemoClaw's host-loopback alias, reaching the
-# host VM's vLLM on port 8000. BENCHMARK_OUTPUT_DIR points at a writable
-# path inside /sandbox/.openclaw-data/. The PATH addition makes `python`
-# resolve to the venv interpreter without an explicit `source .venv/bin/...`.
-ENV SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1 \
+# Sandbox code calls https://inference.local/v1 — NemoClaw's universal
+# in-sandbox inference address (per docs.nvidia.com/nemoclaw/latest/inference/
+# inference-options.html and /sandbox/.openclaw/openclaw.json). The gateway
+# terminates TLS using its internal CA (already trusted via SSL_CERT_FILE /
+# REQUESTS_CA_BUNDLE / NODE_EXTRA_CA_CERTS env vars set by the base image)
+# and forwards to whatever upstream was configured during `nemoclaw onboard`.
+#
+# IMPORTANT: at onboard time, the upstream URL must be something the gateway
+# container can reach the host with. `http://localhost:8000/v1` is WRONG
+# (localhost from the gateway = gateway itself). Use `http://host.docker.
+# internal:8000/v1` or the host VM's LAN IP. See scripts/setup.sh banner.
+ENV SOC_CLAW_LOCAL_VLLM_URL=https://inference.local/v1 \
     SOC_CLAW_MODEL=nvidia/Nemotron-Mini-4B-Instruct \
     BENCHMARK_OUTPUT_DIR=/sandbox/.openclaw-data/soc-claw/results \
     PATH=/opt/soc-claw/.venv/bin:$PATH
