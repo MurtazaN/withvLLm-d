@@ -1,0 +1,44 @@
+# Keep the Docker build context small and free of secrets / dev cruft.
+# This file applies to all Dockerfile builds in the repo.
+
+# Python build artifacts
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Local venvs (host-side install-host.sh creates these; never bake into image)
+.venv/
+**/.venv/
+venv/
+
+# Secrets (never copied into images — env vars + L7 proxy substitute at runtime)
+.env
+.env.*
+!.env.example
+
+# Git metadata
+.git/
+.gitignore
+
+# Benchmark output (regenerated each run, can be large)
+soc-claw/benchmark/results/*.csv
+
+# IDE / OS noise
+.vscode/
+.idea/
+**/.DS_Store
+
+# Docs / assets that don't belong in a runtime image
+*.drawio
+*.drawio.bkp
+architecture.png
+assests/
+main.html
+README.md
+SETUP.md
+setup_nemo.md
+initial_plan.md
+
+# Setup scripts run on the host, not in the image
+scripts/

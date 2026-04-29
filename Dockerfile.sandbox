@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1.6
+# =============================================================================
+# SOC-Claw — sandbox image for `nemoclaw onboard --from Dockerfile.sandbox`.
+#
+# Extends NVIDIA's openclaw base. Bakes the soc-claw source and pinned deps
+# into the image so the sandbox starts with everything in place — no runtime
+# git clone, no PEP 668 dance, no manual venv setup.
+#
+# Secrets (NVIDIA_API_KEY) are NOT baked here. The OpenShell L7 proxy injects
+# them at sandbox startup via /tmp/nemoclaw-proxy-env.sh (sourced by
+# /sandbox/.bashrc), and substitutes the real value into outbound request
+# headers at egress. See:
+#   https://docs.nvidia.com/openshell/latest/sandboxes/manage-providers
+#
+# A separate Dockerfile.service (production target: llm-d / k8s) will share
+# the same source + requirements.txt but extend a slim Python base. Not part
+# of this spike.
+# =============================================================================
+
+ARG OPENCLAW_BASE=ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest
+FROM ${OPENCLAW_BASE}
+
+# --- Build-time installation runs as root ---
+USER root
+
+WORKDIR /opt/soc-claw
+
+# Install dependencies first so this layer caches when only source changes.
+# vLLM is intentionally NOT installed here — vLLM runs on the host, not in
+# the sandbox. The sandbox only needs the openai client and friends to call
+# the host's vLLM via host.openshell.internal:8000.
+COPY requirements.txt /opt/soc-claw/requirements.txt
+RUN python3 -m venv /opt/soc-claw/.venv \
+    && /opt/soc-claw/.venv/bin/pip install --upgrade pip wheel \
+    && /opt/soc-claw/.venv/bin/pip install -r /opt/soc-claw/requirements.txt
+
+# Copy application source. Source changes only bust this layer, not the deps
+# layer above.
+COPY soc-claw/ /opt/soc-claw/
+
+# Make /opt/soc-claw world-readable so the unprivileged sandbox user can
+# import code at runtime. /opt is system-owned and treated read-only by
+# Landlock — sandboxed code cannot tamper with its own image.
+RUN chmod -R a+rX /opt/soc-claw
+
+# Pre-create the runtime state directory under /sandbox/.openclaw-data/.
+# That subtree is the documented "agent/plugin state" path and survives
+# `nemoclaw <name> rebuild` per the workspace-files reference.
+RUN mkdir -p /sandbox/.openclaw-data/soc-claw/results \
+    && chown -R sandbox:sandbox /sandbox/.openclaw-data/soc-claw
+
+# --- Bake non-secret runtime config ---
+# host.openshell.internal is NemoClaw's host-loopback alias, reaching the
+# host VM's vLLM on port 8000. BENCHMARK_OUTPUT_DIR points at a writable
+# path inside /sandbox/.openclaw-data/. The PATH addition makes `python`
+# resolve to the venv interpreter without an explicit `source .venv/bin/...`.
+ENV SOC_CLAW_LOCAL_VLLM_URL=http://host.openshell.internal:8000/v1 \
+    SOC_CLAW_MODEL=nvidia/Nemotron-Mini-4B-Instruct \
+    BENCHMARK_OUTPUT_DIR=/sandbox/.openclaw-data/soc-claw/results \
+    PATH=/opt/soc-claw/.venv/bin:$PATH
+
+# Drop to the unprivileged sandbox user before anything runs.
+USER sandbox
+WORKDIR /opt/soc-claw
