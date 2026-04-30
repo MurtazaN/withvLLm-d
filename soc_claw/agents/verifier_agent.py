@@ -1,15 +1,8 @@
 import json
-import time
 
 from soc_claw.utils import (
-    extract_json,
-    get_client,
-    route_request,
-    log_routing_decision,
-    log_inference,
     log_verification,
-    guided_json_kwargs,
-    MODEL_NAME,
+    call_llm,
 )
 from soc_claw.schemas import VerificationDecision
 
@@ -74,6 +67,12 @@ IMPORTANT GUIDELINES:
 - "Flagged" should be rare — only when you genuinely cannot determine the correct severity.
 - Your verification adds latency to the pipeline. Be decisive, not deliberative."""
 
+_RETRY_HINT = (
+    "Please output valid JSON matching the required schema with fields: "
+    "decision, original_severity, verified_severity, confidence_in_verification, "
+    "reasoning, issues_found, checks_passed, checks_failed, recommendation."
+)
+
 
 async def run_verification(alert: dict, triage_result: dict, steering_context: str = None) -> dict:
     """Run the Verifier Agent on a triage result.
@@ -95,66 +94,8 @@ async def run_verification(alert: dict, triage_result: dict, steering_context: s
     else:
         user_content = f"ALERT:\n{alert_json}\n\nTRIAGE VERDICT:\n{triage_json}"
 
-    # Route the request
-    route, reason = route_request(user_content)
-    log_routing_decision("verifier", route, reason, user_content)
-    client = get_client(route)
-
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
-    ]
-
-    inference_start = time.perf_counter()
-
-    # Single call — NO tools.
-    # On the local route (vLLM), guided_json constrains the output.
-    gj = guided_json_kwargs(VerificationDecision, route)
-    response = await client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=messages,
-        **gj,
-    )
-
-    inference_ms = int((time.perf_counter() - inference_start) * 1000)
-    log_inference("verifier", route, inference_ms)
-
-    content = response.choices[0].message.content or ""
-
-    # Try Pydantic-validated parse first, then regex fallback, then default.
-    result = None
-    try:
-        result = VerificationDecision.model_validate_json(content).model_dump()
-    except Exception:
-        try:
-            result = VerificationDecision.model_validate(extract_json(content)).model_dump()
-        except Exception:
-            pass
-
-    if result is None:
-        # Retry once
-        messages.append({"role": "assistant", "content": content})
-        messages.append({
-            "role": "user",
-            "content": "Please output valid JSON matching the required schema with fields: decision, original_severity, verified_severity, confidence_in_verification, reasoning, issues_found, checks_passed, checks_failed, recommendation.",
-        })
-        response = await client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            **gj,
-        )
-        content = response.choices[0].message.content or ""
-        try:
-            result = VerificationDecision.model_validate_json(content).model_dump()
-        except Exception:
-            try:
-                result = VerificationDecision.model_validate(extract_json(content)).model_dump()
-            except Exception:
-                pass
-
-    if result is None:
-        # Fail-open: treat as confirmed
-        result = {
+    def _default():
+        return {
             "decision": "confirmed",
             "original_severity": triage_result.get("severity", "P3"),
             "verified_severity": triage_result.get("severity", "P3"),
@@ -166,6 +107,15 @@ async def run_verification(alert: dict, triage_result: dict, steering_context: s
             "recommendation": "Manual review recommended due to verification failure.",
         }
 
+    result, inference_ms, route, content = await call_llm(
+        agent_name="verifier",
+        system_prompt=SYSTEM_PROMPT,
+        user_content=user_content,
+        schema_class=VerificationDecision,
+        retry_hint=_RETRY_HINT,
+        default_factory=_default,
+    )
+
     # Log the verification decision
     log_verification(
         alert.get("id", "unknown"),
@@ -174,9 +124,5 @@ async def run_verification(alert: dict, triage_result: dict, steering_context: s
         result.get("decision", ""),
         result.get("issues_found", []),
     )
-
-    result["_inference_ms"] = inference_ms
-    result["_route"] = route
-    result["_raw_response"] = content
 
     return result

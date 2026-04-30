@@ -1,15 +1,8 @@
 import json
-import time
 
 from soc_claw.utils import (
-    extract_json,
-    get_client,
-    route_request,
-    log_routing_decision,
-    log_inference,
     log_response_plan,
-    guided_json_kwargs,
-    MODEL_NAME,
+    call_llm,
 )
 from soc_claw.schemas import ResponsePlan
 
@@ -93,6 +86,12 @@ GUIDELINES:
 - Include the action_type field so the UI can map each step to the correct execution function.
 - If the Verifier flagged issues, reference them in analyst_notes."""
 
+_RETRY_HINT = (
+    "Please output valid JSON matching the required schema with fields: "
+    "alert_id, severity_acted_on, was_adjusted, response_plan, "
+    "incident_summary, analyst_notes, estimated_mttr_impact."
+)
+
 
 async def run_response(alert: dict, final_verdict: dict, steering_context: str = None) -> dict:
     """Run the Response Agent on a verified alert verdict.
@@ -114,77 +113,24 @@ async def run_response(alert: dict, final_verdict: dict, steering_context: str =
     else:
         user_content = f"ALERT:\n{alert_json}\n\nFINAL VERDICT:\n{verdict_json}"
 
-    # Route the request
-    route, reason = route_request(user_content)
-    log_routing_decision("response", route, reason, user_content)
-    client = get_client(route)
-
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
-    ]
-
-    inference_start = time.perf_counter()
-
-    # Single call — NO tools.
-    # On the local route (vLLM), guided_json constrains the output.
-    gj = guided_json_kwargs(ResponsePlan, route)
-    response = await client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=messages,
-        **gj,
-    )
-
-    inference_ms = int((time.perf_counter() - inference_start) * 1000)
-    log_inference("response", route, inference_ms)
-
-    content = response.choices[0].message.content or ""
-
-    # Try Pydantic-validated parse first, then regex fallback, then default.
-    result = None
-    try:
-        result = ResponsePlan.model_validate_json(content).model_dump()
-    except Exception:
-        try:
-            result = ResponsePlan.model_validate(extract_json(content)).model_dump()
-        except Exception:
-            pass
-
-    if result is None:
-        # Retry once
-        messages.append({"role": "assistant", "content": content})
-        messages.append({
-            "role": "user",
-            "content": "Please output valid JSON matching the required schema with fields: alert_id, severity_acted_on, was_adjusted, response_plan, incident_summary, analyst_notes, estimated_mttr_impact.",
-        })
-        response = await client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            **gj,
-        )
-        content = response.choices[0].message.content or ""
-        try:
-            result = ResponsePlan.model_validate_json(content).model_dump()
-        except Exception:
-            try:
-                result = ResponsePlan.model_validate(extract_json(content)).model_dump()
-            except Exception:
-                pass
-
-    if result is None:
-        # Generate minimal default plan
+    def _default():
         severity = final_verdict.get("verified_severity", final_verdict.get("severity", "P3"))
-        result = _default_plan(alert, severity, final_verdict)
+        return _default_plan(alert, severity, final_verdict)
+
+    result, inference_ms, route, content = await call_llm(
+        agent_name="response",
+        system_prompt=SYSTEM_PROMPT,
+        user_content=user_content,
+        schema_class=ResponsePlan,
+        retry_hint=_RETRY_HINT,
+        default_factory=_default,
+    )
 
     # Log the response plan
     plan = result.get("response_plan", [])
     action_types = [s.get("action_type", "") for s in plan]
     approval_count = sum(1 for s in plan if s.get("requires_approval", False))
     log_response_plan(alert.get("id", "unknown"), len(plan), action_types, approval_count)
-
-    result["_inference_ms"] = inference_ms
-    result["_route"] = route
-    result["_raw_response"] = content
 
     return result
 

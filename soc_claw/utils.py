@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import time
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -182,4 +183,107 @@ def guided_json_kwargs(schema_class, route: str) -> dict:
     if route != "local":
         return {}
     return {"extra_body": {"guided_json": schema_class.model_json_schema()}}
+
+
+def _try_parse(schema_class, content: str) -> dict | None:
+    """Attempt Pydantic-validated parse, then regex fallback.
+
+    Returns the validated dict on success, or ``None`` on any failure.
+    """
+    try:
+        return schema_class.model_validate_json(content).model_dump()
+    except Exception:
+        pass
+    try:
+        return schema_class.model_validate(extract_json(content)).model_dump()
+    except Exception:
+        return None
+
+
+async def call_llm(
+    agent_name: str,
+    system_prompt: str,
+    user_content: str,
+    schema_class,
+    retry_hint: str,
+    default_factory=None,
+) -> tuple[dict, int, str, str]:
+    """Shared LLM call scaffold used by all three agents.
+
+    Handles: privacy routing → client selection → guided_json kwargs →
+    first call → Pydantic parse → retry with hint → parse again →
+    optional default factory → metadata attachment.
+
+    Parameters
+    ----------
+    agent_name:
+        Identifier for logging (``"triage"``, ``"verifier"``, ``"response"``).
+    system_prompt:
+        The system-role prompt for this agent.
+    user_content:
+        The user-role prompt (alert + enrichment / verdict).
+    schema_class:
+        Pydantic ``BaseModel`` subclass for the expected output. Used for
+        ``guided_json`` (local route) and parse validation (all routes).
+    retry_hint:
+        Message sent when the first LLM response fails to parse, e.g.
+        ``"Please output valid JSON with fields: ..."``.
+    default_factory:
+        Optional ``callable() -> dict``. Called when both the first call
+        and the retry fail to parse. If ``None`` and parsing fails, an
+        empty dict ``{}`` is returned.
+
+    Returns
+    -------
+    tuple of (result_dict, inference_ms, route, raw_content)
+        ``result_dict`` has ``_inference_ms``, ``_route``, and
+        ``_raw_response`` already attached.
+    """
+    # ── Route & client ────────────────────────────────────────
+    route, reason = route_request(user_content)
+    log_routing_decision(agent_name, route, reason, user_content)
+    client = get_client(route)
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_content},
+    ]
+
+    gj = guided_json_kwargs(schema_class, route)
+
+    # ── First call ────────────────────────────────────────────
+    inference_start = time.perf_counter()
+    response = await client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        **gj,
+    )
+    inference_ms = int((time.perf_counter() - inference_start) * 1000)
+    log_inference(agent_name, route, inference_ms)
+
+    content = response.choices[0].message.content or ""
+    result = _try_parse(schema_class, content)
+
+    # ── Retry once ────────────────────────────────────────────
+    if result is None:
+        messages.append({"role": "assistant", "content": content})
+        messages.append({"role": "user", "content": retry_hint})
+        response = await client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            **gj,
+        )
+        content = response.choices[0].message.content or ""
+        result = _try_parse(schema_class, content)
+
+    # ── Default fallback ──────────────────────────────────────
+    if result is None:
+        result = default_factory() if default_factory else {}
+
+    # ── Attach telemetry metadata ─────────────────────────────
+    result["_inference_ms"] = inference_ms
+    result["_route"] = route
+    result["_raw_response"] = content
+
+    return result, inference_ms, route, content
 

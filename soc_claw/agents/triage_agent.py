@@ -2,14 +2,8 @@ import json
 import time
 
 from soc_claw.utils import (
-    extract_json,
-    get_client,
-    route_request,
-    log_routing_decision,
     log_tool_call,
-    log_inference,
-    guided_json_kwargs,
-    MODEL_NAME,
+    call_llm,
 )
 from soc_claw.schemas import TriageVerdict
 from soc_claw.tools.ip_reputation import ip_reputation
@@ -46,6 +40,11 @@ STEP 3 — OUTPUT: Return a JSON object with exactly these fields:
 Be precise. Be consistent. When in doubt between two severity levels, choose the higher one — missed true positives are more costly than false escalations.
 
 IMPORTANT: Output ONLY the JSON object. No other text."""
+
+_RETRY_HINT = (
+    "Please output ONLY a valid JSON object with fields: severity, confidence, "
+    "reasoning, mitre_techniques, iocs_found, asset_criticality, recommended_urgency."
+)
 
 
 def _run_enrichment(alert: dict) -> tuple[dict, dict, list, list]:
@@ -123,73 +122,14 @@ async def run_triage(alert: dict, steering_context: str = None) -> dict:
             f"ENRICHMENT DATA:\n{enrichment_json}"
         )
 
-    # Route the request
-    route, reason = route_request(user_content)
-    log_routing_decision("triage", route, reason, user_content)
-    client = get_client(route)
-
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
-    ]
-
-    inference_start = time.perf_counter()
-
-    # Single LLM call — no tool-calling API needed.
-    # On the local route (vLLM), guided_json constrains the output at
-    # decode time so the model physically cannot emit invalid JSON.
-    gj = guided_json_kwargs(TriageVerdict, route)
-    response = await client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=messages,
-        **gj,
-    )
-
-    inference_ms = int((time.perf_counter() - inference_start) * 1000)
-    log_inference("triage", route, inference_ms)
-
-    content = response.choices[0].message.content or ""
-
-    # Try Pydantic-validated parse first, then regex fallback, then default.
-    verdict = None
-    try:
-        verdict = TriageVerdict.model_validate_json(content).model_dump()
-    except Exception:
-        try:
-            verdict = TriageVerdict.model_validate(extract_json(content)).model_dump()
-        except Exception:
-            pass
-
-    if verdict is None:
-        # Retry once with a reminder
-        messages.append({"role": "assistant", "content": content})
-        messages.append({
-            "role": "user",
-            "content": "Please output ONLY a valid JSON object with fields: severity, confidence, reasoning, mitre_techniques, iocs_found, asset_criticality, recommended_urgency.",
-        })
-        response = await client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            **gj,
-        )
-        content = response.choices[0].message.content or ""
-        try:
-            verdict = TriageVerdict.model_validate_json(content).model_dump()
-        except Exception:
-            try:
-                verdict = TriageVerdict.model_validate(extract_json(content)).model_dump()
-            except Exception:
-                pass
-
-    if verdict is None:
-        # Default verdict based on enrichment data
+    # Step 3: LLM call via shared scaffold
+    def _default():
         severity = "P3"
         if ip_result.get("verdict") == "malicious" and asset_result.get("criticality") in ("critical", "high"):
             severity = "P1"
         elif ip_result.get("verdict") == "malicious":
             severity = "P2"
-
-        verdict = {
+        return {
             "severity": severity,
             "confidence": 30,
             "reasoning": "Failed to parse LLM response. Severity estimated from enrichment data.",
@@ -199,10 +139,16 @@ async def run_triage(alert: dict, steering_context: str = None) -> dict:
             "recommended_urgency": "immediate" if severity == "P1" else "urgent" if severity == "P2" else "standard",
         }
 
-    # Attach enrichment metadata
+    verdict, inference_ms, route, content = await call_llm(
+        agent_name="triage",
+        system_prompt=SYSTEM_PROMPT,
+        user_content=user_content,
+        schema_class=TriageVerdict,
+        retry_hint=_RETRY_HINT,
+        default_factory=_default,
+    )
+
+    # Attach enrichment metadata (triage-specific)
     verdict["_tool_calls"] = tool_calls_log
-    verdict["_inference_ms"] = inference_ms
-    verdict["_route"] = route
-    verdict["_raw_response"] = content
 
     return verdict
