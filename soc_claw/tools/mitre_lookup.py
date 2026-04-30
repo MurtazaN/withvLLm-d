@@ -28,7 +28,7 @@ def _load_mitre_techniques() -> tuple:
 def mitre_lookup(behavior: str) -> list[dict]:
     """Map observed behavior description to MITRE ATT&CK techniques."""
     techniques = _load_mitre_techniques()
-    behavior_tokens = set(re.findall(r"[a-z0-9]+", behavior.lower()))
+    behavior_tokens = set(re.findall(r"[a-z0-9.]+", behavior.lower()))
 
     matches = []
     for tech in techniques:

@@ -253,8 +253,16 @@ async def api_override(request: Request):
 
     from soc_claw.agents.response_agent import run_response
     final_verdict = {
+        "decision": "adjusted",
+        "original_severity": severity,
         "verified_severity": severity,
         "severity": severity,
+        "confidence_in_verification": 100,
+        "reasoning": f"Analyst manually overrode severity to {severity}.",
+        "issues_found": ["analyst_override"],
+        "checks_passed": [],
+        "checks_failed": [],
+        "recommendation": f"Analyst override to {severity}. Generate response plan accordingly.",
         "was_adjusted": True,
         "was_flagged": False,
     }
