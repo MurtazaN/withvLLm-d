@@ -34,17 +34,17 @@ $EDITOR .env   # set HF_TOKEN
 
 `.env` is gitignored. Don't commit it.
 
-## 3. Host bootstrap (once per host)
+## 3. Host bootstrap (GPU host only)
 
 ```bash
 bash scripts/install-host.sh
 ```
 
-Idempotent. Installs `uv`, a managed Python 3.11, the project venv at `.venv/`, application deps, and vLLM. On first run, if `.env` is missing it copies from `.env.example` and exits — populate it then re-run.
+Idempotent. Installs `uv`, a managed Python 3.11, the project venv at `.venv/`, application deps, and (on Linux + NVIDIA only) vLLM. On macOS / Windows / Linux without `nvidia-smi` it skips the vLLM step and exits cleanly — those hosts use the container against a remote vLLM (see Mac dev flow in §1). On first run, if `.env` is missing the script copies from `.env.example` and exits — populate it then re-run.
 
-vLLM pin notes (driver-dependent): see comments in [scripts/install-host.sh](scripts/install-host.sh) lines 52-65. On a host with driver ≥ 580, replace the pinned install with `uv pip install vllm --torch-backend=auto`.
+vLLM pin notes (driver-dependent): see comments in [scripts/install-host.sh](scripts/install-host.sh). On a host with driver ≥ 580, replace the pinned install with `uv pip install vllm --torch-backend=auto`.
 
-## 4. Start vLLM (terminal 1)
+## 4. Start vLLM (terminal 1, GPU host only)
 
 ```bash
 bash scripts/run-host-vllm.sh

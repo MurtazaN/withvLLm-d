@@ -49,7 +49,18 @@ source "${VENV_DIR}/bin/activate"
 echo "[4/5] Installing application dependencies..."
 uv pip install -r "${REPO_ROOT}/requirements.txt"
 
-if ! python -c "import vllm" &>/dev/null; then
+# vLLM ships CUDA-only wheels (Linux x86_64 / Windows). macOS and Linux
+# without an NVIDIA GPU can't run it — skip cleanly on those hosts. The
+# Mac dev flow uses the container + a port-forward to a remote vLLM; see
+# SETUP.md §1.
+OS_NAME="$(uname -s)"
+if [ "${OS_NAME}" != "Linux" ]; then
+    echo "       Skipping vLLM install — no CUDA wheels for ${OS_NAME}."
+    echo "       Mac/Windows: point SOC_CLAW_LOCAL_VLLM_URL at a remote vLLM."
+elif ! command -v nvidia-smi &>/dev/null; then
+    echo "       Skipping vLLM install — no nvidia-smi found on this Linux host."
+    echo "       Install an NVIDIA driver and re-run if you want host vLLM."
+elif ! python -c "import vllm" &>/dev/null; then
     echo "       Installing vLLM 0.10.2 (cu126) + compatible transformers..."
     # Why these pins (verified working on Brev Instance A6000 48 GiB "VM Mode w/ Jupyter", driver 570.x):
     #   - vllm: latest (0.11+) ships only CUDA-13 wheels, but the driver caps
