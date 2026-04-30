@@ -47,44 +47,65 @@ _RETRY_HINT = (
 )
 
 
-def _run_enrichment(alert: dict) -> tuple[dict, dict, list, list]:
-    """Run all three enrichment tools on an alert. Returns (ip_result, asset_result, mitre_results, tool_calls_log)."""
+async def _run_enrichment(alert: dict) -> tuple[dict, dict, list, list, dict | None]:
+    """Run all enrichment tools concurrently on an alert.
+
+    Returns (ip_result, asset_result, mitre_results, tool_calls_log, source_ip_result).
+    Tools run via ``asyncio.to_thread`` so they don't block the event
+    loop and latencies don't stack when tools become real API calls.
+    """
+    import asyncio
+
     tool_calls_log = []
 
-    # IP Reputation - check dest_ip (and source_ip if external)
     dest_ip = alert.get("dest_ip", "")
     source_ip = alert.get("source_ip", "")
+    hostname = alert.get("hostname", "")
+    behavior = f"{alert.get('rule_name', '')} {alert.get('payload', '')}"
 
-    start = time.perf_counter()
-    ip_result = ip_reputation(dest_ip)
-    elapsed = int((time.perf_counter() - start) * 1000)
-    log_tool_call("ip_reputation", {"ip": dest_ip}, ip_result, elapsed)
+    # Run the three core lookups concurrently
+    async def _timed(name, func, *args):
+        start = time.perf_counter()
+        result = await asyncio.to_thread(func, *args)
+        elapsed = int((time.perf_counter() - start) * 1000)
+        return name, args, result, elapsed
+
+    tasks = [
+        _timed("ip_reputation", ip_reputation, dest_ip),
+        _timed("asset_lookup", asset_lookup, hostname),
+        _timed("mitre_lookup", mitre_lookup, behavior),
+    ]
+
+    # Optionally check source IP if it's external
+    check_source = (
+        source_ip
+        and not source_ip.startswith("10.")
+        and not source_ip.startswith("192.168.")
+    )
+    if check_source:
+        tasks.append(_timed("ip_reputation", ip_reputation, source_ip))
+
+    results = await asyncio.gather(*tasks)
+
+    # Unpack results in known order
+    ip_name, ip_args, ip_result, ip_ms = results[0]
+    asset_name, asset_args, asset_result, asset_ms = results[1]
+    mitre_name, mitre_args, mitre_results, mitre_ms = results[2]
+
+    log_tool_call("ip_reputation", {"ip": dest_ip}, ip_result, ip_ms)
     tool_calls_log.append({"tool": "ip_reputation", "input": {"ip": dest_ip}, "output": ip_result})
 
-    # Also check source IP if it's external
-    source_ip_result = None
-    if source_ip and not source_ip.startswith("10.") and not source_ip.startswith("192.168."):
-        start = time.perf_counter()
-        source_ip_result = ip_reputation(source_ip)
-        elapsed = int((time.perf_counter() - start) * 1000)
-        log_tool_call("ip_reputation", {"ip": source_ip}, source_ip_result, elapsed)
-        tool_calls_log.append({"tool": "ip_reputation", "input": {"ip": source_ip}, "output": source_ip_result})
-
-    # Asset Lookup
-    hostname = alert.get("hostname", "")
-    start = time.perf_counter()
-    asset_result = asset_lookup(hostname)
-    elapsed = int((time.perf_counter() - start) * 1000)
-    log_tool_call("asset_lookup", {"hostname": hostname}, asset_result, elapsed)
+    log_tool_call("asset_lookup", {"hostname": hostname}, asset_result, asset_ms)
     tool_calls_log.append({"tool": "asset_lookup", "input": {"hostname": hostname}, "output": asset_result})
 
-    # MITRE Lookup - build behavior description from alert
-    behavior = f"{alert.get('rule_name', '')} {alert.get('payload', '')}"
-    start = time.perf_counter()
-    mitre_results = mitre_lookup(behavior)
-    elapsed = int((time.perf_counter() - start) * 1000)
-    log_tool_call("mitre_lookup", {"behavior": behavior[:200]}, mitre_results, elapsed)
+    log_tool_call("mitre_lookup", {"behavior": behavior[:200]}, mitre_results, mitre_ms)
     tool_calls_log.append({"tool": "mitre_lookup", "input": {"behavior": behavior[:200]}, "output": mitre_results})
+
+    source_ip_result = None
+    if check_source:
+        _, _, source_ip_result, src_ms = results[3]
+        log_tool_call("ip_reputation", {"ip": source_ip}, source_ip_result, src_ms)
+        tool_calls_log.append({"tool": "ip_reputation", "input": {"ip": source_ip}, "output": source_ip_result})
 
     return ip_result, asset_result, mitre_results, tool_calls_log, source_ip_result
 
@@ -96,7 +117,7 @@ async def run_triage(alert: dict, steering_context: str = None) -> dict:
     for analysis and severity scoring.
     """
     # Step 1: Run enrichment tools directly
-    ip_result, asset_result, mitre_results, tool_calls_log, source_ip_result = _run_enrichment(alert)
+    ip_result, asset_result, mitre_results, tool_calls_log, source_ip_result = await _run_enrichment(alert)
 
     # Step 2: Build enriched prompt for the LLM
     alert_json = json.dumps(alert, indent=2)

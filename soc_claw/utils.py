@@ -52,7 +52,11 @@ def extract_json(text: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    raise ValueError(f"Could not extract valid JSON from LLM response: {text[:200]}...")
+    logger.debug("extract_json failed on full text:\n%s", text)
+    head = text[:200]
+    tail = text[-200:] if len(text) > 400 else ""
+    preview = f"{head}...{tail}" if tail else head
+    raise ValueError(f"Could not extract valid JSON from LLM response: {preview}")
 
 
 @lru_cache(maxsize=1)

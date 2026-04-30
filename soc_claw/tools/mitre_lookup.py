@@ -1,29 +1,28 @@
 import json
 import logging
 import re
+from functools import lru_cache
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-_cache = None
 _logger = logging.getLogger("soc-claw.tools.mitre_lookup")
 
 
-def _load_mitre_techniques():
-    global _cache
-    if _cache is None:
-        from soc_claw.schemas import MitreTechnique
+@lru_cache(maxsize=1)
+def _load_mitre_techniques() -> tuple:
+    """Load and validate MITRE techniques. Cached after first call."""
+    from soc_claw.schemas import MitreTechnique
 
-        with open(DATA_DIR / "mitre_techniques.json") as f:
-            raw = json.load(f)
-        validated = []
-        for i, item in enumerate(raw):
-            try:
-                tech = MitreTechnique.model_validate(item)
-                validated.append(tech.model_dump())
-            except Exception as exc:
-                _logger.warning("Skipping invalid mitre_technique at index %d: %s", i, exc)
-        _cache = validated
-    return _cache
+    with open(DATA_DIR / "mitre_techniques.json") as f:
+        raw = json.load(f)
+    validated = []
+    for i, item in enumerate(raw):
+        try:
+            tech = MitreTechnique.model_validate(item)
+            validated.append(tech.model_dump())
+        except Exception as exc:
+            _logger.warning("Skipping invalid mitre_technique at index %d: %s", i, exc)
+    return tuple(validated)
 
 
 def mitre_lookup(behavior: str) -> list[dict]:

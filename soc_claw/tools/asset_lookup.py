@@ -1,28 +1,27 @@
 import json
 import logging
+from functools import lru_cache
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-_cache = None
 _logger = logging.getLogger("soc-claw.tools.asset_lookup")
 
 
-def _load_asset_inventory():
-    global _cache
-    if _cache is None:
-        from soc_claw.schemas import Asset
+@lru_cache(maxsize=1)
+def _load_asset_inventory() -> tuple:
+    """Load and validate asset inventory. Cached after first call."""
+    from soc_claw.schemas import Asset
 
-        with open(DATA_DIR / "asset_inventory.json") as f:
-            raw = json.load(f)
-        validated = []
-        for i, item in enumerate(raw):
-            try:
-                asset = Asset.model_validate(item)
-                validated.append(asset.model_dump())
-            except Exception as exc:
-                _logger.warning("Skipping invalid asset entry at index %d: %s", i, exc)
-        _cache = validated
-    return _cache
+    with open(DATA_DIR / "asset_inventory.json") as f:
+        raw = json.load(f)
+    validated = []
+    for i, item in enumerate(raw):
+        try:
+            asset = Asset.model_validate(item)
+            validated.append(asset.model_dump())
+        except Exception as exc:
+            _logger.warning("Skipping invalid asset entry at index %d: %s", i, exc)
+    return tuple(validated)
 
 
 def asset_lookup(hostname: str) -> dict:
