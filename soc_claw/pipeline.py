@@ -33,6 +33,7 @@ from pathlib import Path
 from soc_claw.agents.triage_agent import run_triage
 from soc_claw.agents.verifier_agent import run_verification
 from soc_claw.agents.response_agent import run_response
+from soc_claw.telemetry import get_tracer
 from soc_claw.tools import response_tools
 from soc_claw.utils import log_analyst_action
 
@@ -87,6 +88,7 @@ async def run_pipeline(alert: dict, steering_context: str = None) -> dict:
 
     Returns complete result with all three agent outputs + timing.
     """
+    tracer = get_tracer()
     result = {
         "alert": alert,
         "triage_result": None,
@@ -98,43 +100,61 @@ async def run_pipeline(alert: dict, steering_context: str = None) -> dict:
         "timing": {},
     }
 
-    # Stage 1: Triage
-    triage_start = time.perf_counter()
-    triage_result = await run_triage(alert, steering_context)
-    triage_ms = int((time.perf_counter() - triage_start) * 1000)
-    result["triage_result"] = triage_result
-    result["timing"]["triage_ms"] = triage_ms
+    with tracer.start_as_current_span(
+        "pipeline.run_pipeline",
+        attributes={"alert.id": alert.get("id", "unknown")},
+    ) as root_span:
+        # Stage 1: Triage
+        with tracer.start_as_current_span("stage.triage") as triage_span:
+            triage_start = time.perf_counter()
+            triage_result = await run_triage(alert, steering_context)
+            triage_ms = int((time.perf_counter() - triage_start) * 1000)
+            triage_span.set_attribute("severity", triage_result.get("severity", ""))
+            result["triage_result"] = triage_result
+            result["timing"]["triage_ms"] = triage_ms
 
-    # Stage 2: Verification
-    verify_start = time.perf_counter()
-    verification_result = await run_verification(alert, triage_result, steering_context)
-    verify_ms = int((time.perf_counter() - verify_start) * 1000)
-    result["verification_result"] = verification_result
-    result["timing"]["verification_ms"] = verify_ms
+        # Stage 2: Verification
+        with tracer.start_as_current_span("stage.verification") as verify_span:
+            verify_start = time.perf_counter()
+            verification_result = await run_verification(alert, triage_result, steering_context)
+            verify_ms = int((time.perf_counter() - verify_start) * 1000)
+            verify_span.set_attribute(
+                "decision", verification_result.get("decision", "")
+            )
+            result["verification_result"] = verification_result
+            result["timing"]["verification_ms"] = verify_ms
 
-    # Merge verdict
-    final_verdict = merge_verdict(triage_result, verification_result)
-    result["final_verdict"] = final_verdict
-    result["was_adjusted"] = final_verdict.get("was_adjusted", False)
-    result["was_flagged"] = final_verdict.get("was_flagged", False)
+        # Merge verdict
+        final_verdict = merge_verdict(triage_result, verification_result)
+        result["final_verdict"] = final_verdict
+        result["was_adjusted"] = final_verdict.get("was_adjusted", False)
+        result["was_flagged"] = final_verdict.get("was_flagged", False)
 
-    # Stage 3: Response (skip if flagged)
-    if final_verdict.get("was_flagged"):
-        result["response_plan"] = None
-        result["timing"]["response_ms"] = 0
-    else:
-        response_start = time.perf_counter()
-        response_result = await run_response(alert, final_verdict, steering_context)
-        response_ms = int((time.perf_counter() - response_start) * 1000)
-        result["response_plan"] = response_result
-        result["timing"]["response_ms"] = response_ms
+        # Stage 3: Response (skip if flagged)
+        if final_verdict.get("was_flagged"):
+            result["response_plan"] = None
+            result["timing"]["response_ms"] = 0
+        else:
+            with tracer.start_as_current_span("stage.response") as resp_span:
+                response_start = time.perf_counter()
+                response_result = await run_response(alert, final_verdict, steering_context)
+                response_ms = int((time.perf_counter() - response_start) * 1000)
+                resp_span.set_attribute(
+                    "verified_severity",
+                    final_verdict.get("verified_severity", ""),
+                )
+                result["response_plan"] = response_result
+                result["timing"]["response_ms"] = response_ms
 
-    # Total timing
-    result["timing"]["total_ms"] = (
-        result["timing"]["triage_ms"]
-        + result["timing"]["verification_ms"]
-        + result["timing"].get("response_ms", 0)
-    )
+        # Total timing
+        result["timing"]["total_ms"] = (
+            result["timing"]["triage_ms"]
+            + result["timing"]["verification_ms"]
+            + result["timing"].get("response_ms", 0)
+        )
+
+        root_span.set_attribute("was_adjusted", result["was_adjusted"])
+        root_span.set_attribute("was_flagged", result["was_flagged"])
 
     return result
 

@@ -125,7 +125,62 @@ docker compose --profile benchmark run --rm benchmark 3
 ls soc_claw/benchmark/results/run_*.csv  # CSV present on host
 ```
 
-## 10. Configuration reference
+## 10. Observability
+
+`setup_logging()` and `setup_tracing()` run at module import time in
+both [soc_claw/backend/server.py](soc_claw/backend/server.py) and
+[soc_claw/benchmark/harness.py](soc_claw/benchmark/harness.py). Logs are
+JSON to stderr by default; OTEL traces export to an OTLP collector when
+configured.
+
+### JSON logs
+
+Every log line is JSON, parseable by Loki / Datadog / CloudWatch with
+zero regex. Fields passed via `extra={...}` land as top-level keys:
+
+```json
+{"timestamp": "2026-04-30T17:23:01+0000", "name": "soc-claw",
+ "level": "INFO", "message": "routing_decision",
+ "agent": "triage", "route": "local", "prompt_hash": "ab12…"}
+```
+
+Why the **root** logger (not just `"soc-claw"`)? Without it, uvicorn /
+httpx / openai logs would emit plaintext while everything else emits
+JSON, breaking aggregator parsers. The setup code clears uvicorn's own
+handlers and forces propagation.
+
+### Trace correlation
+
+When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, every log record gets a
+`trace_id` and `span_id` injected by `TraceContextFilter`, so a
+Grafana / Datadog dashboard can pivot from a log line straight to the
+trace that produced it.
+
+### Local trace inspection (Jaeger)
+
+```bash
+docker run -d --rm --name jaeger \
+  -p 4317:4317 -p 16686:16686 \
+  jaegertracing/all-in-one:1.62
+
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 \
+  python -m soc_claw.backend.server
+# trigger one alert, then open http://localhost:16686 → service=soc-claw
+```
+
+### Harness vs server defaults
+
+- **Server**: `SOC_CLAW_LOG_LEVEL=INFO` — request-level visibility is the point.
+- **Harness**: `SOC_CLAW_LOG_LEVEL=WARNING` — keeps the summary table readable. Override to `INFO` for CI / production runs.
+
+### Log file sink
+
+Set `SOC_CLAW_LOG_FILE=/path/to/run.jsonl` to redirect JSON output from
+stderr to a file (append mode). Useful for harness/CI runs where stderr
+should stay clean for the summary table. In Docker, mount the file path
+so it survives container restarts.
+
+## 11. Configuration reference
 
 All runtime config is env-driven (see [.env.example](.env.example)):
 
@@ -135,5 +190,11 @@ All runtime config is env-driven (see [.env.example](.env.example)):
 - `NVIDIA_API_KEY` — required only for the cloud route
 - `SOC_CLAW_MODEL` — model name passed to both vLLM and the OpenAI client
 - `BENCHMARK_OUTPUT_DIR` — leave blank for host dev (`soc_claw/benchmark/results/`); compose overrides to `/app/soc_claw/benchmark/results`
+- `SOC_CLAW_SECRET_KEY` — session-cookie / CSRF signing key; generate with `python -c "import secrets; print(secrets.token_hex(32))"`
+- `SOC_CLAW_USERS` — `username:bcrypt_hash` pairs (comma-separated); generate hashes via `python -m soc_claw.backend.auth <password>`
+- `SOC_CLAW_SESSION_MAX_AGE` — session lifetime in seconds (default `28800`, 8 hours)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` — OTLP gRPC endpoint; leave blank for no-op tracing
+- `SOC_CLAW_LOG_LEVEL` — `DEBUG` / `INFO` / `WARNING` / `ERROR`; server default `INFO`, harness default `WARNING`
+- `SOC_CLAW_LOG_FILE` — when set, JSON logs append to this path instead of stderr
 
 For the production target (llm-d / k8s), the same image ships unchanged; secrets become a k8s `Secret` and config a `ConfigMap` mounted as env.

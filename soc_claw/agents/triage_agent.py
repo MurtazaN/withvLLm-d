@@ -56,6 +56,9 @@ async def _run_enrichment(alert: dict) -> tuple[dict, dict, list, list, dict | N
     """
     import asyncio
 
+    from soc_claw.telemetry import get_tracer
+    tracer = get_tracer()
+
     tool_calls_log = []
 
     dest_ip = alert.get("dest_ip", "")
@@ -70,22 +73,27 @@ async def _run_enrichment(alert: dict) -> tuple[dict, dict, list, list, dict | N
         elapsed = int((time.perf_counter() - start) * 1000)
         return name, args, result, elapsed
 
-    tasks = [
-        _timed("ip_reputation", ip_reputation, dest_ip),
-        _timed("asset_lookup", asset_lookup, hostname),
-        _timed("mitre_lookup", mitre_lookup, behavior),
-    ]
+    with tracer.start_as_current_span(
+        "enrichment.run",
+        attributes={"alert.id": alert.get("id", "")},
+    ) as span:
+        tasks = [
+            _timed("ip_reputation", ip_reputation, dest_ip),
+            _timed("asset_lookup", asset_lookup, hostname),
+            _timed("mitre_lookup", mitre_lookup, behavior),
+        ]
 
-    # Optionally check source IP if it's external
-    check_source = (
-        source_ip
-        and not source_ip.startswith("10.")
-        and not source_ip.startswith("192.168.")
-    )
-    if check_source:
-        tasks.append(_timed("ip_reputation", ip_reputation, source_ip))
+        # Optionally check source IP if it's external
+        check_source = (
+            source_ip
+            and not source_ip.startswith("10.")
+            and not source_ip.startswith("192.168.")
+        )
+        if check_source:
+            tasks.append(_timed("ip_reputation", ip_reputation, source_ip))
 
-    results = await asyncio.gather(*tasks)
+        span.set_attribute("tools_run", len(tasks))
+        results = await asyncio.gather(*tasks)
 
     # Unpack results in known order
     ip_name, ip_args, ip_result, ip_ms = results[0]

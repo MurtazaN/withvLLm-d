@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import time
-from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -133,47 +132,84 @@ MODEL_NAME = os.environ.get(
 def log_routing_decision(agent_name: str, route: str, reason: str, prompt: str):
     """Log a privacy routing decision."""
     prompt_hash = hashlib.sha256(prompt[:500].encode()).hexdigest()[:12]
-    timestamp = datetime.now(timezone.utc).isoformat()
-    logger.info(f"{timestamp} | {route} | {reason} | {prompt_hash} | agent={agent_name}")
+    logger.info(
+        "routing_decision",
+        extra={
+            "event": "routing_decision",
+            "agent": agent_name,
+            "route": route,
+            "reason": reason,
+            "prompt_hash": prompt_hash,
+        },
+    )
 
 
 def log_tool_call(tool_name: str, tool_input: dict, tool_output: dict, latency_ms: int):
     """Log a tool call with timing."""
-    timestamp = datetime.now(timezone.utc).isoformat()
     logger.info(
-        f"{timestamp} | tool_call | {tool_name} | input={json.dumps(tool_input)[:200]} | "
-        f"latency={latency_ms}ms"
+        "tool_call",
+        extra={
+            "event": "tool_call",
+            "tool": tool_name,
+            "input_preview": json.dumps(tool_input)[:200],
+            "latency_ms": latency_ms,
+        },
     )
 
 
 def log_inference(agent_name: str, route: str, latency_ms: int):
     """Log an inference request."""
-    timestamp = datetime.now(timezone.utc).isoformat()
-    logger.info(f"{timestamp} | inference | {agent_name} | route={route} | latency={latency_ms}ms")
+    logger.info(
+        "inference",
+        extra={
+            "event": "inference",
+            "agent": agent_name,
+            "route": route,
+            "latency_ms": latency_ms,
+        },
+    )
 
 
 def log_verification(alert_id: str, original: str, verified: str, decision: str, issues: list):
     """Log a verification decision."""
-    timestamp = datetime.now(timezone.utc).isoformat()
     logger.info(
-        f"{timestamp} | verification | {alert_id} | {original}->{verified} | "
-        f"decision={decision} | issues={issues}"
+        "verification",
+        extra={
+            "event": "verification",
+            "alert_id": alert_id,
+            "original_severity": original,
+            "verified_severity": verified,
+            "decision": decision,
+            "issues": issues,
+        },
     )
 
 
 def log_response_plan(alert_id: str, num_steps: int, action_types: list, approval_count: int):
     """Log a response plan."""
-    timestamp = datetime.now(timezone.utc).isoformat()
     logger.info(
-        f"{timestamp} | response_plan | {alert_id} | steps={num_steps} | "
-        f"actions={action_types} | approval_required={approval_count}"
+        "response_plan",
+        extra={
+            "event": "response_plan",
+            "alert_id": alert_id,
+            "num_steps": num_steps,
+            "action_types": action_types,
+            "approval_required": approval_count,
+        },
     )
 
 
 def log_analyst_action(alert_id: str, action: str, details: str):
     """Log an analyst action (approve/reject/steer)."""
-    timestamp = datetime.now(timezone.utc).isoformat()
-    logger.info(f"{timestamp} | analyst | {alert_id} | {action} | {details}")
+    logger.info(
+        "analyst_action",
+        extra={
+            "event": "analyst_action",
+            "alert_id": alert_id,
+            "action": action,
+            "details": details,
+        },
+    )
 
 
 def guided_json_kwargs(schema_class, route: str) -> dict:
@@ -243,51 +279,68 @@ async def call_llm(
         ``result_dict`` has ``_inference_ms``, ``_route``, and
         ``_raw_response`` already attached.
     """
-    # ── Route & client ────────────────────────────────────────
-    route, reason = route_request(user_content)
-    log_routing_decision(agent_name, route, reason, user_content)
-    client = get_client(route)
+    from soc_claw.telemetry import get_tracer
+    tracer = get_tracer()
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_content},
-    ]
+    with tracer.start_as_current_span(
+        "llm.call",
+        attributes={"agent": agent_name, "model": MODEL_NAME},
+    ) as span:
+        # ── Route & client ────────────────────────────────────────
+        route, reason = route_request(user_content)
+        span.set_attribute("route", route)
+        span.set_attribute("route.reason", reason)
+        log_routing_decision(agent_name, route, reason, user_content)
+        client = get_client(route)
 
-    gj = guided_json_kwargs(schema_class, route)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
+        ]
 
-    # ── First call ────────────────────────────────────────────
-    inference_start = time.perf_counter()
-    response = await client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=messages,
-        **gj,
-    )
-    inference_ms = int((time.perf_counter() - inference_start) * 1000)
-    log_inference(agent_name, route, inference_ms)
+        gj = guided_json_kwargs(schema_class, route)
 
-    content = response.choices[0].message.content or ""
-    result = _try_parse(schema_class, content)
-
-    # ── Retry once ────────────────────────────────────────────
-    if result is None:
-        messages.append({"role": "assistant", "content": content})
-        messages.append({"role": "user", "content": retry_hint})
+        # ── First call ────────────────────────────────────────────
+        inference_start = time.perf_counter()
         response = await client.chat.completions.create(
             model=MODEL_NAME,
             messages=messages,
             **gj,
         )
+        inference_ms = int((time.perf_counter() - inference_start) * 1000)
+        log_inference(agent_name, route, inference_ms)
+
         content = response.choices[0].message.content or ""
         result = _try_parse(schema_class, content)
+        used_retry = False
+        used_default = False
 
-    # ── Default fallback ──────────────────────────────────────
-    if result is None:
-        result = default_factory() if default_factory else {}
+        # ── Retry once ────────────────────────────────────────────
+        if result is None:
+            used_retry = True
+            messages.append({"role": "assistant", "content": content})
+            messages.append({"role": "user", "content": retry_hint})
+            response = await client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=messages,
+                **gj,
+            )
+            content = response.choices[0].message.content or ""
+            result = _try_parse(schema_class, content)
 
-    # ── Attach telemetry metadata ─────────────────────────────
-    result["_inference_ms"] = inference_ms
-    result["_route"] = route
-    result["_raw_response"] = content
+        # ── Default fallback ──────────────────────────────────────
+        if result is None:
+            used_default = True
+            result = default_factory() if default_factory else {}
 
-    return result, inference_ms, route, content
+        span.set_attribute("parse.success", not used_default)
+        span.set_attribute("used_retry", used_retry)
+        span.set_attribute("used_default", used_default)
+
+        # ── Attach telemetry metadata ─────────────────────────────
+        result["_inference_ms"] = inference_ms
+        result["_route"] = route
+        result["_raw_response"] = content
+
+        return result, inference_ms, route, content
 

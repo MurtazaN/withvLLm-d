@@ -16,6 +16,13 @@ dependencies = [
     "bcrypt>=4.0",
     "starlette-csrf>=3.0",
     "itsdangerous>=2.0",
+    "python-multipart>=0.0.7",
+    "python-json-logger>=3.2",
+    "opentelemetry-api>=1.29,<2",
+    "opentelemetry-sdk>=1.29,<2",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.29,<2",
+    "opentelemetry-instrumentation-fastapi>=0.50b0,<0.51",
+    "opentelemetry-instrumentation-httpx>=0.50b0,<0.51",
 ]
 
 # vLLM is intentionally NOT a project dependency. It is a host-only GPU
@@ -33,6 +40,10 @@ dev = [
 [build-system]
 requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["soc_claw"]

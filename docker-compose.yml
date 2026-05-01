@@ -19,6 +19,9 @@ services:
       - .env
     environment:
       SOC_CLAW_LOCAL_VLLM_URL: ${SOC_CLAW_LOCAL_VLLM_URL:-http://host.docker.internal:8000/v1}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      SOC_CLAW_LOG_LEVEL: ${SOC_CLAW_LOG_LEVEL:-INFO}
+      SOC_CLAW_LOG_FILE: ${SOC_CLAW_LOG_FILE:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -34,6 +37,9 @@ services:
       - .env
     environment:
       SOC_CLAW_LOCAL_VLLM_URL: ${SOC_CLAW_LOCAL_VLLM_URL:-http://host.docker.internal:8000/v1}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      SOC_CLAW_LOG_LEVEL: ${SOC_CLAW_LOG_LEVEL:-WARNING}
+      SOC_CLAW_LOG_FILE: ${SOC_CLAW_LOG_FILE:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

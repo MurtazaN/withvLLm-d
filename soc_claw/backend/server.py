@@ -21,7 +21,15 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from fastapi.templating import Jinja2Templates
 from starlette_csrf import CSRFMiddleware
 
-from soc_claw.backend.auth import (
+from soc_claw.logging_config import setup_logging
+from soc_claw.telemetry import setup_tracing
+
+# Observability bootstrap. MUST run before FastAPI(...) is constructed
+# so FastAPIInstrumentor's class-level patch covers the app instance.
+setup_logging()
+setup_tracing()
+
+from soc_claw.backend.auth import (  # noqa: E402  (after observability bootstrap)
     SECRET_KEY,
     SESSION_COOKIE,
     SESSION_MAX_AGE,
@@ -30,13 +38,13 @@ from soc_claw.backend.auth import (
     destroy_session,
     get_current_user,
 )
-from soc_claw.pipeline import (
+from soc_claw.pipeline import (  # noqa: E402
     run_pipeline,
     execute_approved_action,
     load_alerts,
     get_alert_by_id,
 )
-from soc_claw.utils import log_analyst_action
+from soc_claw.utils import log_analyst_action  # noqa: E402
 
 logger = logging.getLogger("soc-claw.server")
 
@@ -374,5 +382,4 @@ async def api_override(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    logging.basicConfig(level=logging.INFO)
     uvicorn.run(app, host="0.0.0.0", port=7860)

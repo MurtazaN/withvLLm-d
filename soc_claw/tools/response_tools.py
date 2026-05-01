@@ -1,5 +1,8 @@
+import logging
 import random
 from datetime import datetime, timezone
+
+logger = logging.getLogger("soc-claw.response_tools")
 
 
 def _now():
@@ -8,7 +11,15 @@ def _now():
 
 def isolate_host(hostname: str) -> dict:
     """Simulate network isolation via EDR API."""
-    print(f"[EDR] {_now()} Isolating host: {hostname}")
+    logger.info(
+        "action_executed",
+        extra={
+            "event": "action_executed",
+            "action_type": "isolate_host",
+            "target": hostname,
+            "channel": "EDR",
+        },
+    )
     return {
         "status": "success",
         "action": "host_isolated",
@@ -19,7 +30,16 @@ def isolate_host(hostname: str) -> dict:
 
 def block_ioc(indicator: str, indicator_type: str) -> dict:
     """Simulate blocking an IOC at network perimeter."""
-    print(f"[FIREWALL] {_now()} Blocking {indicator_type}: {indicator}")
+    logger.info(
+        "action_executed",
+        extra={
+            "event": "action_executed",
+            "action_type": "block_ioc",
+            "target": indicator,
+            "indicator_type": indicator_type,
+            "channel": "FIREWALL",
+        },
+    )
     return {
         "status": "success",
         "action": "ioc_blocked",
@@ -32,7 +52,17 @@ def block_ioc(indicator: str, indicator_type: str) -> dict:
 def create_ticket(summary: str, priority: str) -> dict:
     """Simulate creating an ITSM ticket."""
     ticket_id = f"INC-{datetime.now().strftime('%Y%m%d')}-{random.randint(1, 999):03d}"
-    print(f"[ITSM] {_now()} Ticket created: {ticket_id} [{priority}] {summary}")
+    logger.info(
+        "action_executed",
+        extra={
+            "event": "action_executed",
+            "action_type": "create_ticket",
+            "ticket_id": ticket_id,
+            "priority": priority,
+            "summary": summary,
+            "channel": "ITSM",
+        },
+    )
     return {
         "status": "success",
         "action": "ticket_created",
@@ -45,7 +75,16 @@ def create_ticket(summary: str, priority: str) -> dict:
 
 def escalate(tier: int, message: str) -> dict:
     """Simulate escalation to higher-tier analyst."""
-    print(f"[ESCALATION] {_now()} Escalated to Tier {tier}: {message}")
+    logger.info(
+        "action_executed",
+        extra={
+            "event": "action_executed",
+            "action_type": "escalate",
+            "tier": tier,
+            "message": message,
+            "channel": "ESCALATION",
+        },
+    )
     return {
         "status": "success",
         "action": "escalated",
