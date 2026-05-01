@@ -13,6 +13,10 @@ dependencies = [
     "python-dotenv>=1.0",
     "pyyaml",
     "pydantic>=2.6",
+    "bcrypt>=4.0",
+    "starlette-csrf>=3.0",
+    "itsdangerous>=2.0",
+    "python-multipart>=0.0.9",
 ]
 
 # vLLM is intentionally NOT a project dependency. It is a host-only GPU

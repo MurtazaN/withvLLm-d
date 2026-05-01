@@ -4,19 +4,33 @@ Serves the HTML UI from soc_claw/frontend/templates/index.html and exposes
 JSON + SSE endpoints for the pipeline. The benchmark "run all" path
 streams per-alert progress over Server-Sent Events so the analyst sees
 results as they arrive instead of waiting for the whole batch.
+
+Authentication (S1):  session-cookie auth via ``soc_claw.backend.auth``.
+CSRF protection (S3): ``starlette-csrf`` middleware on all POST endpoints.
 """
 
 import asyncio
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from starlette_csrf import CSRFMiddleware
 
+from soc_claw.backend.auth import (
+    SECRET_KEY,
+    SESSION_COOKIE,
+    SESSION_MAX_AGE,
+    authenticate,
+    create_session,
+    destroy_session,
+    get_current_user,
+)
 from soc_claw.pipeline import (
     run_pipeline,
     execute_approved_action,
@@ -29,17 +43,99 @@ logger = logging.getLogger("soc-claw.server")
 
 app = FastAPI(title="SOC-Claw")
 
+# ──────────────────────── CSRF Middleware (S3) ────────────────────────
+# starlette-csrf sets a ``csrftoken`` cookie and requires a matching
+# ``x-csrftoken`` header on POST/PUT/DELETE.  The login endpoint is
+# exempt because there is no session to protect before auth.
+app.add_middleware(
+    CSRFMiddleware,
+    secret=SECRET_KEY,
+    cookie_name="csrftoken",
+    cookie_samesite="lax",
+    exempt_urls=[re.compile(r"^/login$"), re.compile(r"^/login/$")],
+)
+
 TEMPLATES_DIR = Path(__file__).parent.parent / "frontend" / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+# Paths that don't require authentication
+_PUBLIC_PATHS = {"/login", "/login/"}
+
+
+# ──────────────────────── Auth Middleware (S1) ────────────────────────
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Enforce authentication on all non-public routes.
+
+    - Browser requests (non-API) get a 302 redirect to ``/login``.
+    - API requests get a 401 JSON response.
+    """
+    if request.url.path in _PUBLIC_PATHS:
+        return await call_next(request)
+
+    user = get_current_user(request)
+    if not user:
+        if request.url.path.startswith("/api/"):
+            return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return RedirectResponse("/login", status_code=302)
+
+    # Attach user to request state for downstream use (S6)
+    request.state.user = user
+    return await call_next(request)
+
+
+# ──────────────────────── Auth Pages ────────────────────────
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse(request, "login.html")
+
+
+@app.post("/login")
+async def login(request: Request):
+    form = await request.form()
+    username = str(form.get("username", "")).strip()
+    password = str(form.get("password", ""))
+
+    if not authenticate(username, password):
+        return templates.TemplateResponse(request, "login.html", context={
+            "error": "Invalid username or password",
+        })
+
+    sid = create_session(username)
+    response = RedirectResponse("/", status_code=302)
+    response.set_cookie(
+        SESSION_COOKIE,
+        sid,
+        httponly=True,
+        samesite="lax",
+        max_age=SESSION_MAX_AGE,
+        secure=False,  # Set True behind HTTPS reverse proxy
+    )
+    logger.info("User %s logged in", username)
+    return response
+
+
+@app.post("/logout")
+async def logout(request: Request):
+    sid = request.cookies.get(SESSION_COOKIE)
+    username = get_current_user(request) or "unknown"
+    if sid:
+        destroy_session(sid)
+    logger.info("User %s logged out", username)
+    response = RedirectResponse("/login", status_code=302)
+    response.delete_cookie(SESSION_COOKIE)
+    return response
 
 
 # ──────────────────────── Pages ────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", context={
         "alerts": load_alerts(),
+        "analyst": request.state.user,  # S6: real authenticated username
     })
 
 
@@ -133,7 +229,7 @@ async def _process_alert_for_stream(alert: dict, sem: asyncio.Semaphore) -> dict
     """Run one alert through the pipeline under a concurrency semaphore.
 
     Returns the row dict the SSE stream will emit. Errors are converted
-    into an `ERROR` row rather than propagating, so a single bad alert
+    into an ``ERROR`` row rather than propagating, so a single bad alert
     doesn't terminate the whole stream.
     """
     gt_sev = alert["ground_truth"]["severity"]
@@ -249,7 +345,8 @@ async def api_override(request: Request):
     if not alert:
         return JSONResponse({"error": "Alert not found"}, status_code=404)
 
-    log_analyst_action(alert_id, "override", f"Set severity to {severity}")
+    analyst = getattr(request.state, "user", "unknown")
+    log_analyst_action(alert_id, "override", f"Set severity to {severity} (by {analyst})")
 
     from soc_claw.agents.response_agent import run_response
     final_verdict = {
@@ -258,7 +355,7 @@ async def api_override(request: Request):
         "verified_severity": severity,
         "severity": severity,
         "confidence_in_verification": 100,
-        "reasoning": f"Analyst manually overrode severity to {severity}.",
+        "reasoning": f"Analyst {analyst} manually overrode severity to {severity}.",
         "issues_found": ["analyst_override"],
         "checks_passed": [],
         "checks_failed": [],

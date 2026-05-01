@@ -91,6 +91,11 @@ tailwind.config = {
                 <span class="text-white text-xs font-medium" id="status-text">Pipeline Ready</span>
             </div>
         </div>
+        <form method="POST" action="/logout" class="mt-3">
+            <button type="submit" class="w-full text-zinc-500 hover:text-white text-[11px] uppercase tracking-wider font-bold flex items-center justify-center gap-2 py-2 rounded border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 transition-all">
+                <span class="material-symbols-outlined text-[16px]">logout</span>Sign Out
+            </button>
+        </form>
     </div>
 </aside>
 
@@ -107,7 +112,7 @@ tailwind.config = {
             <div id="pipeline-timer" class="text-xs font-mono text-zinc-400 hidden"></div>
             <div class="flex items-center gap-3 pl-4 border-l border-zinc-200">
                 <div class="text-right">
-                    <p class="text-xs font-bold text-zinc-900">Analyst_04</p>
+                    <p class="text-xs font-bold text-zinc-900">{{ analyst }}</p>
                     <p class="text-[10px] text-zinc-500">Tier 2 Responder</p>
                 </div>
             </div>
@@ -328,6 +333,27 @@ tailwind.config = {
 </main>
 
 <script>
+// ──────── CSRF Protection (S3) ────────
+// Read the csrftoken cookie set by starlette-csrf and auto-attach it
+// as an x-csrftoken header on every non-GET fetch.
+(function() {
+    function getCsrfToken() {
+        const match = document.cookie.match(/csrftoken=([^;]+)/);
+        return match ? match[1] : '';
+    }
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts) {
+        opts = opts || {};
+        if (opts.method && opts.method.toUpperCase() !== 'GET') {
+            opts.headers = opts.headers || {};
+            if (typeof opts.headers === 'object' && !(opts.headers instanceof Headers)) {
+                opts.headers['x-csrftoken'] = getCsrfToken();
+            }
+        }
+        return _origFetch.call(this, url, opts);
+    };
+})();
+
 // ──────── State ────────
 let currentAlertId = null;
 let currentResult = null;
