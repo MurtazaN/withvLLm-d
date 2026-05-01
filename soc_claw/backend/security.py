@@ -14,10 +14,21 @@ import os
 from guard import SecurityConfig
 
 DEFAULT_WHITELIST = "127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+DEFAULT_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "img-src 'self' data:; "
+)
 
 
 def _parse_csv(raw: str) -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def build_csp_header() -> str:
+    return os.environ.get("SOC_CLAW_CSP", DEFAULT_CSP)
 
 
 def build_security_config() -> SecurityConfig:

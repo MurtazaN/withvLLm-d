@@ -23,7 +23,7 @@ from fastapi.templating import Jinja2Templates
 from guard import SecurityMiddleware
 from starlette_csrf import CSRFMiddleware
 
-from soc_claw.backend.security import build_security_config
+from soc_claw.backend.security import build_csp_header, build_security_config
 from soc_claw.logging_config import setup_logging
 from soc_claw.telemetry import setup_tracing
 
@@ -62,15 +62,21 @@ app.add_middleware(
     secret=SECRET_KEY,
     cookie_name="csrftoken",
     cookie_samesite="lax",
-    exempt_urls=[re.compile(r"^/login/?$")],
-    # exempt_urls={"/login"},
+    exempt_urls=[re.compile(r"^/login/?$"), re.compile(r"^/logout/?$")],
 )
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "frontend" / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Paths that don't require authentication
-_PUBLIC_PATHS = {"/login", "/login/"}
+_PUBLIC_PATHS = {"/login", "/login/", "/logout", "/logout/"}
+
+
+@app.middleware("http")
+async def csp_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = build_csp_header()
+    return response
 
 
 # ──────────────────────── Auth Middleware (S1) ────────────────────────
@@ -104,7 +110,7 @@ async def auth_middleware(request: Request, call_next):
 # OUTERMOST at runtime — bad traffic is rejected before any session,
 # CSRF, or handler work runs. Runtime order:
 #   request → SecurityMiddleware → auth_middleware → CSRFMiddleware → handler
-app.add_middleware(SecurityMiddleware, config=build_security_config())
+# app.add_middleware(SecurityMiddleware, config=build_security_config())
 
 
 # ──────────────────────── Auth Pages ────────────────────────
