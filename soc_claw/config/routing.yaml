@@ -15,9 +15,12 @@ providers:
   openrouter:
     base_url: https://openrouter.ai/api/v1
     api_key_env: OPENROUTER_API_KEY
-  hf:
+  hugging-face:
     base_url: https://api-inference.huggingface.co/models/fdtn-ai/Foundation-Sec-8B-Reasoning
     api_key_env: HUGGING_FACE_TOKEN
+  vertex-ai:
+    base_url: https://vertexai.googleapis.com/v1/projects/your-project/locations/global/instances:predict
+    api_key_env: VERTEX_AI_API_KEY
 
 # Per-agent default assignment.
 agents:
