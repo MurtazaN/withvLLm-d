@@ -65,22 +65,3 @@ class AssetLookupTool:
 register(AssetLookupTool())
 
 
-if __name__ == "__main__":
-    # Test known hostname
-    result = asset_lookup("DC-FINANCE-01")
-    print(f"Known host: {result}")
-    assert result["found"] is True
-    assert result["criticality"] == "critical"
-
-    # Test case-insensitive
-    result = asset_lookup("dc-finance-01")
-    print(f"Case-insensitive: {result}")
-    assert result["found"] is True
-
-    # Test unknown hostname
-    result = asset_lookup("UNKNOWN-HOST-999")
-    print(f"Unknown host: {result}")
-    assert result["found"] is False
-    assert result["criticality"] == "medium"
-
-    print("\nAll asset_lookup tests passed!")

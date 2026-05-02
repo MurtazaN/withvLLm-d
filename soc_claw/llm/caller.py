@@ -21,7 +21,7 @@ class LLMResult(NamedTuple):
     raw_content: str
 
 
-def _try_parse(schema_class, content: str) -> dict | None:
+def _parse_llm_output(schema_class, content: str) -> dict | None:
     """Attempt Pydantic-validated parse, then regex fallback.
 
     Returns the validated dict on success, or ``None`` on any failure.
@@ -110,7 +110,7 @@ async def call_llm(
         log_inference(agent_name, route, inference_ms)
 
         content = response.choices[0].message.content or ""
-        result = _try_parse(schema_class, content)
+        result = _parse_llm_output(schema_class, content)
         used_retry = False
         used_default = False
 
@@ -125,7 +125,7 @@ async def call_llm(
                 **gj,
             )
             content = response.choices[0].message.content or ""
-            result = _try_parse(schema_class, content)
+            result = _parse_llm_output(schema_class, content)
 
         # ── Default fallback ──────────────────────────────────────
         if result is None:

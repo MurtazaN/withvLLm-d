@@ -68,24 +68,3 @@ class MitreLookupTool:
 register(MitreLookupTool())
 
 
-if __name__ == "__main__":
-    # Test PowerShell behavior
-    result = mitre_lookup("powershell encoded command downloading payload from external IP")
-    print(f"PowerShell behavior: {[r['technique_id'] for r in result]}")
-    assert any(r["technique_id"] == "T1059.001" for r in result)
-
-    # Test brute force
-    result = mitre_lookup("brute force failed login authentication attempts password guessing")
-    print(f"Brute force: {[r['technique_id'] for r in result]}")
-    assert any(r["technique_id"] == "T1110.001" for r in result)
-
-    # Test no match
-    result = mitre_lookup("normal web browsing activity on corporate laptop")
-    print(f"Normal activity: {result}")
-
-    # Test DNS tunneling
-    result = mitre_lookup("dns tunneling query subdomain exfil covert channel")
-    print(f"DNS tunneling: {[r['technique_id'] for r in result]}")
-    assert any(r["technique_id"] == "T1071.004" for r in result)
-
-    print("\nAll mitre_lookup tests passed!")

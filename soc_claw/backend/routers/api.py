@@ -57,7 +57,7 @@ async def api_run(alert_id: str, request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-def _sse(event: str, data: dict) -> str:
+def _format_sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
@@ -140,7 +140,7 @@ async def api_run_all():
     async def stream():
         agg = _RunAllAggregator()
         started_at = time.perf_counter()
-        yield _sse("start", {"total": total, "concurrency": concurrency})
+        yield _format_sse_event("start", {"total": total, "concurrency": concurrency})
 
         sem = asyncio.Semaphore(concurrency)
         tasks = [
@@ -152,10 +152,10 @@ async def api_run_all():
             row = await fut
             completed += 1
             agg.add(row)
-            yield _sse("result", {**row, "completed": completed})
+            yield _format_sse_event("result", {**row, "completed": completed})
 
         elapsed = time.perf_counter() - started_at
-        yield _sse("summary", agg.summary(total, elapsed))
+        yield _format_sse_event("summary", agg.summary(total, elapsed))
 
     return StreamingResponse(
         stream(),

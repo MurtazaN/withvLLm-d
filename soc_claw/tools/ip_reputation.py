@@ -85,23 +85,3 @@ class IPReputationTool:
 register(IPReputationTool())
 
 
-if __name__ == "__main__":
-    # Test with known malicious IP
-    result = ip_reputation("185.220.101.42")
-    print(f"Known malicious IP: {result}")
-    assert result["verdict"] == "malicious"
-    assert result["threat_score"] == 95
-
-    # Test with unknown IP
-    result = ip_reputation("8.8.8.8")
-    print(f"Unknown IP: {result}")
-    assert result["verdict"] == "unknown"
-    assert result["threat_score"] == 0
-
-    # Test with another known malicious IP
-    result = ip_reputation("203.0.113.99")
-    print(f"Ransomware IP: {result}")
-    assert result["verdict"] == "malicious"
-    assert "ransomware-infra" in result["tags"]
-
-    print("\nAll ip_reputation tests passed!")

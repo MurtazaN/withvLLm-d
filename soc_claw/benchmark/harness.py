@@ -101,12 +101,10 @@ async def _process_alert(alert: dict, sem: asyncio.Semaphore) -> dict:
             }
 
 
-def _decision_suffix(decision: str) -> str:
-    if decision == "adjusted":
-        return " (ADJUSTED)"
-    if decision == "flagged":
-        return " (FLAGGED)"
-    return ""
+_DECISION_LABELS = {
+    "adjusted": " (ADJUSTED)",
+    "flagged": " (FLAGGED)",
+}
 
 
 def _format_row_line(completed: int, n_total: int, row: dict) -> str:
@@ -118,7 +116,7 @@ def _format_row_line(completed: int, n_total: int, row: dict) -> str:
         f"GT={row['ground_truth_severity']} "
         f"Triage={row['triage_severity']} "
         f"Verified={row['verified_severity']}"
-        f"{_decision_suffix(row['verification_decision'])} "
+        f"{_DECISION_LABELS.get(row['verification_decision'], '')} "
         f"[{row['e2e_latency_ms']}ms]"
     )
 

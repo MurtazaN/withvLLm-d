@@ -1,7 +1,7 @@
 """Robustly extract JSON from LLM response text.
 
 Handles markdown fences, bare JSON, and regex fallback.  Used by
-``soc_claw.llm.caller._try_parse`` and available as a standalone
+``soc_claw.llm.caller._parse_llm_output`` and available as a standalone
 utility for any consumer that needs to pull structured data from
 free-text LLM output.
 """
