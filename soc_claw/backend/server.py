@@ -42,6 +42,7 @@ from soc_claw.backend.auth import (  # noqa: E402  (after observability bootstra
     destroy_session,
     get_current_user,
 )
+from soc_claw.guardrails import GuardrailViolation  # noqa: E402
 from soc_claw.pipeline import (  # noqa: E402
     run_pipeline,
     execute_approved_action,
@@ -362,12 +363,32 @@ async def api_approve(request: Request):
     body = await request.json()
     action = body.get("action", {})
     alert = body.get("alert", {})
-    severity = body.get("severity")
-    if severity:
-        action["_severity"] = severity
+
+    # Validate client-supplied severity/confidence at the boundary.
+    # Severity is clamped to the P1-P4 set; anything else falls back to P3.
+    # Confidence is coerced to int and clamped to [0, 100].
+    # NOTE: these values are still client-trusted — the larger fix is
+    # server-side plan persistence (tracked as S4 in CODE_REVIEW.md). The
+    # validation here only prevents type errors and obviously-bogus values.
+    severity = str(body.get("severity", "")).upper()
+    if severity not in ("P1", "P2", "P3", "P4"):
+        severity = "P3"
+    action["_severity"] = severity
+
+    raw_conf = body.get("confidence")
+    if raw_conf is not None:
+        try:
+            conf = int(raw_conf)
+        except (TypeError, ValueError):
+            conf = 0
+        action["_confidence"] = max(0, min(100, conf))
+
     analyst = getattr(request.state, "user", "unknown")
     try:
         return execute_approved_action(action, alert, analyst=analyst)
+    except GuardrailViolation as e:
+        logger.warning("guardrail_blocked_approve rule=%s analyst=%s", e.rule, analyst)
+        return JSONResponse({"error": str(e), "rule": e.rule}, status_code=403)
     except Exception as e:
         logger.exception("api_approve failed (analyst=%s)", analyst)
         return JSONResponse({"error": str(e)}, status_code=500)

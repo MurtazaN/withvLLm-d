@@ -41,11 +41,18 @@ def compute_percentile(values: list[float], p: float) -> float:
 
 
 async def _process_alert(alert: dict, sem: asyncio.Semaphore) -> dict:
-    """Run one alert end-to-end under a concurrency semaphore.
+    """Run one alert end-to-end under a pipeline-concurrency semaphore.
 
     Returns the row dict the harness aggregates. Errors are converted into
     an "ERROR" row rather than propagating, so a single bad alert doesn't
     abort the batch.
+
+    Two-level concurrency:
+      * sem (SOC_CLAW_CONCURRENCY): caps in-flight pipelines as a resource
+        bound — memory, task contexts, enrichment thread pool. Set high
+        enough to never starve vLLM (must be >= LLM_CONCURRENCY).
+      * SOC_CLAW_LLM_CONCURRENCY (in utils.call_llm): caps in-flight LLM
+        calls so vLLM's continuous-batching queue stays saturated.
     """
     alert_id = alert["id"]
     gt = alert["ground_truth"]
@@ -287,20 +294,41 @@ def _save_csv(results: list[dict]) -> Path | None:
 async def run_benchmark(max_alerts: int = 30) -> dict:
     """Run the full benchmark across all alerts.
 
-    Alerts are processed concurrently up to `SOC_CLAW_CONCURRENCY` (default
-    5) — vLLM batches concurrent requests well so this is a near-linear
-    speedup. Output ordering is by completion time, not alert ID; the final
-    CSV is sorted by alert_id at the end so it stays stable across runs.
+    Two concurrency knobs, both floored at 1:
+
+      SOC_CLAW_CONCURRENCY (default 50)
+          Caps in-flight pipelines as a resource bound — protects against
+          spawning thousands of task contexts, enrichment threads, and
+          per-alert dict allocations when batches grow large.
+
+      SOC_CLAW_LLM_CONCURRENCY (default 10, enforced inside utils.call_llm)
+          Caps simultaneous LLM API calls so vLLM's continuous-batching
+          queue stays saturated without overwhelming GPU memory.
+
+    For correct vLLM utilisation, SOC_CLAW_CONCURRENCY must be >=
+    SOC_CLAW_LLM_CONCURRENCY; otherwise the LLM semaphore can never reach
+    its capacity. Output ordering is by completion time; the final CSV is
+    sorted by alert_id for stability across runs.
     """
     alerts = load_alerts()[:max_alerts]
     n_total = len(alerts)
-    concurrency = max(1, int(os.environ.get("SOC_CLAW_CONCURRENCY", "5")))
+    llm_concurrency = max(1, int(os.environ.get("SOC_CLAW_LLM_CONCURRENCY", "10")))
+    pipeline_concurrency = max(1, int(os.environ.get("SOC_CLAW_CONCURRENCY", "50")))
+    if pipeline_concurrency < llm_concurrency:
+        print(
+            f"WARNING: SOC_CLAW_CONCURRENCY ({pipeline_concurrency}) < "
+            f"SOC_CLAW_LLM_CONCURRENCY ({llm_concurrency}); "
+            f"vLLM batching will be starved."
+        )
 
     print(f"\n{'='*70}")
-    print(f"SOC-Claw Benchmark — {n_total} alerts (concurrency={concurrency})")
+    print(
+        f"SOC-Claw Benchmark — {n_total} alerts "
+        f"(pipeline={pipeline_concurrency}, llm={llm_concurrency})"
+    )
     print(f"{'='*70}\n")
 
-    sem = asyncio.Semaphore(concurrency)
+    sem = asyncio.Semaphore(pipeline_concurrency)
     total_start = time.perf_counter()
 
     tasks = [asyncio.create_task(_process_alert(a, sem)) for a in alerts]
