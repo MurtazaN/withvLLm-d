@@ -1,0 +1,185 @@
+version: "1.0"
+
+# NemoClaw Guardrail Policy
+# Loaded at startup by soc_claw/guardrails.py; enforced at three stages:
+#
+#   1. input_rails    — before the alert payload reaches any LLM
+#   2. triage_rails   — after the Triage Agent produces its verdict
+#   3. response_rails — before any analyst-approved action executes
+#
+# Condition mini-language (used in force_review_conditions and
+# require_for_isolation):
+#   severity == P1 | in [P1, P2]
+#   asset_criticality == critical | in [critical, high]
+#   confidence < 40 | >= 70
+#   Compound: "severity == P1 and confidence >= 70"
+
+
+# ── 1. Input Rails ────────────────────────────────────────────────────────
+# Alert payloads are partially attacker-controlled: a malicious log line
+# can embed natural-language instructions that cause the LLM to output
+# attacker-chosen severity or actions (prompt injection via the data plane).
+# These patterns catch the most common injection forms before the model sees
+# them. action: block halts the pipeline; warn annotates but continues.
+
+input_rails:
+
+  prompt_injection:
+    enabled: true
+    action: block
+    patterns:
+      - "ignore previous instructions"
+      - "disregard your system prompt"
+      - "forget everything above"
+      - "you are now"
+      - "act as"
+      - "jailbreak"
+      - "DAN mode"
+      - "new persona"
+      - "pretend you are"
+      - "override safety"
+      - "bypass your guidelines"
+
+  # Payloads beyond this length are truncated before being sent to the LLM.
+  # Prevents token-stuffing attacks and keeps prompts within context budget.
+  max_payload_length: 8192
+
+
+# ── 2. Triage Rails ───────────────────────────────────────────────────────
+
+triage_rails:
+
+  # Verdicts below this confidence score are annotated as needing review
+  # regardless of severity. A low-confidence P1 is more dangerous than a
+  # reviewed P3 — the analyst needs to know the model is uncertain.
+  min_confidence: 25
+
+  # A P1 verdict requires BOTH of the following to be present in the
+  # enrichment data. Without them the model is likely over-escalating.
+  #   confirmed_malicious_ioc: at least one iocs_found entry with threat_score >= 80
+  #   critical_or_high_asset:  asset_criticality in [critical, high]
+  p1_requires:
+    - confirmed_malicious_ioc
+    - critical_or_high_asset
+
+  # Sliding-window escalation-bias check.
+  # If the P1 rate across the last window_size alerts exceeds
+  # p1_rate_threshold, new P1 verdicts are annotated with a bias warning.
+  # This catches model drift toward always escalating (common under load).
+  escalation_bias:
+    enabled: true
+    window_size: 10
+    p1_rate_threshold: 0.60
+
+  # Conditions that force the pipeline to surface for human review even if
+  # the Verifier said "confirmed". Use this for high-stakes combinations
+  # where automated confidence is insufficient.
+  force_review_conditions:
+    - condition: "confidence < 40 and severity in [P1, P2]"
+      reason: "Low-confidence high-severity verdict — senior analyst review required"
+    - condition: "severity == P1 and asset_criticality == critical"
+      reason: "P1 on a critical infrastructure asset always reviewed by Tier-3 before response"
+
+
+# ── 3. Response Rails ─────────────────────────────────────────────────────
+
+response_rails:
+
+  # Action authorization matrix.
+  # allowed_severities: severity levels that may trigger this action type.
+  # requires_approval:  true means the UI must get an explicit analyst click;
+  #                     guardrails blocks execution if this is bypassed.
+  # blast_radius.max_per_hour: hard ceiling on executions per rolling hour.
+  #   Prevents a runaway pipeline (or compromised analyst session) from
+  #   cascading containment across the entire network.
+
+  action_matrix:
+
+    isolate_host:
+      allowed_severities: [P1, P2]
+      requires_approval: true
+      blast_radius:
+        max_per_hour: 5          # isolating > 5 hosts/hour likely indicates automation error
+
+    block_ioc:
+      allowed_severities: [P1, P2, P3]
+      requires_approval: true
+      blast_radius:
+        max_per_hour: 30
+
+    escalate:
+      allowed_severities: [P1, P2]
+      requires_approval: true
+      blast_radius:
+        max_per_hour: 10
+
+    collect_forensics:
+      allowed_severities: [P1, P2]
+      requires_approval: true
+      blast_radius:
+        max_per_hour: 10
+
+    create_ticket:
+      allowed_severities: [P1, P2, P3, P4]
+      requires_approval: false
+      blast_radius: ~
+
+    add_to_watchlist:
+      allowed_severities: [P1, P2, P3]
+      requires_approval: false
+      blast_radius: ~
+
+    notify_owner:
+      allowed_severities: [P1, P2, P3, P4]
+      requires_approval: false
+      blast_radius: ~
+
+    tune_rule:
+      allowed_severities: [P3, P4]
+      requires_approval: false
+      blast_radius: ~
+
+  # Protected assets require stricter evidence before isolation.
+  # Isolating a domain controller or primary DB without high-confidence
+  # evidence causes an outage that is typically worse than the attack itself.
+  # Each entry adds extra conditions on top of the action_matrix rules.
+
+  protected_assets:
+
+    - hostname: DC-FINANCE-01
+      note: "Active Directory domain controller — finance division"
+      require_for_isolation:
+        - "severity == P1"
+        - "confidence >= 70"
+
+    - hostname: DC-CORP-01
+      note: "Primary Active Directory domain controller"
+      require_for_isolation:
+        - "severity == P1"
+        - "confidence >= 70"
+
+    - hostname: SRV-DB-01
+      note: "Primary SQL server — customer data"
+      require_for_isolation:
+        - "severity == P1"
+        - "confidence >= 65"
+
+    - hostname: VPN-GW-01
+      note: "Corporate VPN gateway — isolating cuts remote-worker access"
+      require_for_isolation:
+        - "severity in [P1, P2]"
+        - "confidence >= 60"
+
+    - hostname: SRV-EMAIL-01
+      note: "Exchange server — isolating halts email for the organisation"
+      require_for_isolation:
+        - "severity == P1"
+        - "confidence >= 60"
+
+
+# ── 4. Audit ──────────────────────────────────────────────────────────────
+
+audit:
+  log_all_violations: true     # log every GuardrailViolation even if not raised
+  log_blocked_actions: true    # log actions rejected by action_matrix
+  log_guardrail_flags: true    # log triage annotations (force_review, bias, etc.)

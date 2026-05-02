@@ -33,6 +33,7 @@ from pathlib import Path
 from soc_claw.agents.triage_agent import run_triage
 from soc_claw.agents.verifier_agent import run_verification
 from soc_claw.agents.response_agent import run_response
+from soc_claw.guardrails import check_input, check_triage_output, check_action
 from soc_claw.telemetry import get_tracer
 from soc_claw.tools import response_tools
 from soc_claw.utils import log_analyst_action
@@ -104,12 +105,24 @@ async def run_pipeline(alert: dict, steering_context: str = None) -> dict:
         "pipeline.run_pipeline",
         attributes={"alert.id": alert.get("id", "unknown")},
     ) as root_span:
+        # Stage 0: Input guardrails — screen alert payload for injection
+        # before any agent sees it; truncate oversized payloads.
+        payload = alert.get("payload", "")
+        alert["payload"] = check_input(payload, source=alert.get("id", "unknown"))
+
         # Stage 1: Triage
         with tracer.start_as_current_span("stage.triage") as triage_span:
             triage_start = time.perf_counter()
             triage_result = await run_triage(alert, steering_context)
             triage_ms = int((time.perf_counter() - triage_start) * 1000)
+            # Triage output guardrails: annotate with _guardrail_flags if
+            # evidence doesn't support the verdict or bias is detected.
+            triage_result = check_triage_output(triage_result, alert)
             triage_span.set_attribute("severity", triage_result.get("severity", ""))
+            triage_span.set_attribute(
+                "guardrail_flags",
+                len(triage_result.get("_guardrail_flags", [])),
+            )
             result["triage_result"] = triage_result
             result["timing"]["triage_ms"] = triage_ms
 
@@ -202,8 +215,15 @@ def execute_approved_action(
     target = action.get("target", "")
     reasoning = action.get("reasoning", "")
     alert_id = alert.get("id", "unknown") if alert else "unknown"
+    severity = action.get("_severity", "P3")
+    confidence = action.get("_confidence", 100)
 
     log_analyst_action(alert_id, "approve", f"{action_type}: {target} (by {analyst})")
+
+    # Guardrails check: severity authorization, blast-radius, protected assets.
+    # Raises GuardrailViolation if the action is not permitted; the caller
+    # (api_approve) converts that to a 403 response.
+    check_action(action, severity=severity, confidence=confidence, analyst=analyst)
 
     if action_type == "isolate_host":
         return response_tools.isolate_host(target)

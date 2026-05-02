@@ -42,6 +42,7 @@ from soc_claw.backend.auth import (  # noqa: E402  (after observability bootstra
     destroy_session,
     get_current_user,
 )
+from soc_claw.guardrails import GuardrailViolation  # noqa: E402
 from soc_claw.pipeline import (  # noqa: E402
     run_pipeline,
     execute_approved_action,
@@ -363,11 +364,17 @@ async def api_approve(request: Request):
     action = body.get("action", {})
     alert = body.get("alert", {})
     severity = body.get("severity")
+    confidence = body.get("confidence")
     if severity:
         action["_severity"] = severity
+    if confidence is not None:
+        action["_confidence"] = int(confidence)
     analyst = getattr(request.state, "user", "unknown")
     try:
         return execute_approved_action(action, alert, analyst=analyst)
+    except GuardrailViolation as e:
+        logger.warning("guardrail_blocked_approve rule=%s analyst=%s", e.rule, analyst)
+        return JSONResponse({"error": str(e), "rule": e.rule}, status_code=403)
     except Exception as e:
         logger.exception("api_approve failed (analyst=%s)", analyst)
         return JSONResponse({"error": str(e)}, status_code=500)
