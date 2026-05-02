@@ -1,6 +1,6 @@
 """Shared LLM call scaffold used by all three SOC-Claw agents.
 
-Handles: privacy routing → client selection → guided_json kwargs →
+Handles: endpoint selection → guided_json kwargs →
 first call → Pydantic parse → retry with hint → parse again →
 optional default factory → metadata attachment.
 """
@@ -9,9 +9,8 @@ import time
 from typing import NamedTuple
 
 from soc_claw.audit import log_inference, log_routing_decision
-from soc_claw.llm.client import MODEL_NAME, get_client, guided_json_kwargs
+from soc_claw.llm.client import select_endpoint, guided_json_kwargs
 from soc_claw.llm.json_extract import extract_json
-from soc_claw.routing import route_request
 
 
 class LLMResult(NamedTuple):
@@ -42,13 +41,12 @@ async def call_llm(
     user_content: str,
     schema_class,
     retry_hint: str,
-    # retry_hint: str,
     default_factory=None,
     client=None,
 ) -> LLMResult:
     """Shared LLM call scaffold used by all three agents.
 
-    Handles: privacy routing → client selection → guided_json kwargs →
+    Handles: endpoint selection → guided_json kwargs →
     first call → Pydantic parse → retry with hint → parse again →
     optional default factory → metadata attachment.
 
@@ -75,22 +73,22 @@ async def call_llm(
     -------
     LLMResult
         NamedTuple containing result dict, inference_ms, route, and raw_content.
-        ``result_dict`` has ``_inference_ms``, ``_route``, and
-        ``_raw_response`` already attached.
     """
     from soc_claw.telemetry import get_tracer
     tracer = get_tracer()
 
+    # ── Resolve endpoint from routing.yaml ─────────────────────
+    selected_client, model_name, reason = select_endpoint(agent_name, user_content)
+    client_to_use = client or selected_client
+    route = reason  # use the reason string as the route label
+
     with tracer.start_as_current_span(
         "llm.call",
-        attributes={"agent": agent_name, "model": MODEL_NAME},
+        attributes={"agent": agent_name, "model": model_name},
     ) as span:
-        # ── Route & client ────────────────────────────────────────
-        route, reason = route_request(user_content)
         span.set_attribute("route", route)
         span.set_attribute("route.reason", reason)
         log_routing_decision(agent_name, route, reason, user_content)
-        client_to_use = client or get_client(route)
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -102,7 +100,7 @@ async def call_llm(
         # ── First call ────────────────────────────────────────────
         inference_start = time.perf_counter()
         response = await client_to_use.chat.completions.create(
-            model=MODEL_NAME,
+            model=model_name,
             messages=messages,
             **gj,
         )
@@ -120,7 +118,7 @@ async def call_llm(
             messages.append({"role": "assistant", "content": content})
             messages.append({"role": "user", "content": retry_hint})
             response = await client_to_use.chat.completions.create(
-                model=MODEL_NAME,
+                model=model_name,
                 messages=messages,
                 **gj,
             )

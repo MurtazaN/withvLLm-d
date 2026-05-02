@@ -15,8 +15,7 @@ from the canonical module directly.
 # ── Re-exports from soc_claw.llm ──────────────────────────────────
 from soc_claw.llm.json_extract import extract_json  # noqa: F401
 from soc_claw.llm.client import (  # noqa: F401
-    MODEL_NAME,
-    get_client,
+    select_endpoint,
     guided_json_kwargs,
 )
 from soc_claw.llm.caller import call_llm  # noqa: F401
