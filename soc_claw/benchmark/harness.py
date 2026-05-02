@@ -75,7 +75,7 @@ async def _process_alert(alert: dict, sem: asyncio.Semaphore) -> dict:
                 "e2e_latency_ms": result["timing"]["total_ms"],
                 "triage_confidence": result["triage_result"].get("confidence", 0),
                 "verification_confidence": verif.get("confidence_in_verification", 0),
-                "num_tool_calls": len(result["triage_result"].get("_tool_calls", [])),
+                "num_tool_calls": len(result["triage_result"].get("_meta", {}).get("tool_calls", [])),
                 "num_response_steps": len(plan_steps),
                 "num_approval_required": sum(1 for s in plan_steps if s.get("requires_approval")),
             }
@@ -151,16 +151,20 @@ def _count_correct_adjustments(adjustments: list[dict]) -> int:
     return correct
 
 
-def _compute_metrics(results: list[dict], total_time: float) -> dict:
-    """Aggregate per-alert rows into the benchmark metrics dict."""
-    valid = [r for r in results if r["triage_severity"] != "ERROR"]
-    n = len(valid)
-
+def _latency_metrics(valid: list[dict]) -> dict:
     triage_lats = [r["triage_latency_ms"] for r in valid]
     verif_lats = [r["verification_latency_ms"] for r in valid]
     resp_lats = [r["response_latency_ms"] for r in valid]
     e2e_lats = [r["e2e_latency_ms"] for r in valid]
+    return {
+        "triage": {"avg": _safe_mean(triage_lats), "p50": _safe_pct(triage_lats, 50), "p95": _safe_pct(triage_lats, 95)},
+        "verification": {"avg": _safe_mean(verif_lats), "p50": _safe_pct(verif_lats, 50), "p95": _safe_pct(verif_lats, 95)},
+        "response": {"avg": _safe_mean(resp_lats), "p50": _safe_pct(resp_lats, 50), "p95": _safe_pct(resp_lats, 95)},
+        "e2e": {"avg": _safe_mean(e2e_lats), "p50": _safe_pct(e2e_lats, 50), "p95": _safe_pct(e2e_lats, 95)},
+    }
 
+
+def _accuracy_metrics(valid: list[dict], n: int) -> dict:
     triage_correct_count = sum(1 for r in valid if r["triage_correct"])
     verified_correct_count = sum(1 for r in valid if r["verified_correct"])
     triage_acc = triage_correct_count / n * 100 if n else 0
@@ -173,6 +177,22 @@ def _compute_metrics(results: list[dict], total_time: float) -> dict:
     fp_rate = fp_correct / len(fp_alerts) * 100 if fp_alerts else 0
     fn_rate = fn_count / len(tp_alerts) * 100 if tp_alerts else 0
 
+    return {
+        "triage_raw": round(triage_acc, 1),
+        "triage_verified": round(verified_acc, 1),
+        "improvement": round(verified_acc - triage_acc, 1),
+        "fp_detection_rate": round(fp_rate, 1),
+        "fn_rate": round(fn_rate, 1),
+        "_triage_correct_count": triage_correct_count,
+        "_verified_correct_count": verified_correct_count,
+        "_fp_correct": fp_correct,
+        "_fp_total": len(fp_alerts),
+        "_fn_count": fn_count,
+        "_fn_total": len(tp_alerts),
+    }
+
+
+def _verification_metrics(valid: list[dict], n: int) -> dict:
     decisions = [r["verification_decision"] for r in valid]
     confirm_rate = decisions.count("confirmed") / n * 100 if n else 0
     adjust_rate = decisions.count("adjusted") / n * 100 if n else 0
@@ -181,6 +201,21 @@ def _compute_metrics(results: list[dict], total_time: float) -> dict:
     adjustments = [r for r in valid if r["verification_decision"] == "adjusted"]
     adj_correct = _count_correct_adjustments(adjustments)
     adj_correct_rate = adj_correct / len(adjustments) * 100 if adjustments else 0
+
+    return {
+        "confirm_rate": round(confirm_rate, 1),
+        "adjust_rate": round(adjust_rate, 1),
+        "flag_rate": round(flag_rate, 1),
+        "adjustment_correct_rate": round(adj_correct_rate, 1),
+        "_adj_correct": adj_correct,
+        "_adj_total": len(adjustments),
+    }
+
+
+def _compute_metrics(results: list[dict], total_time: float) -> dict:
+    """Aggregate per-alert rows into the benchmark metrics dict."""
+    valid = [r for r in results if r["triage_severity"] != "ERROR"]
+    n = len(valid)
 
     step_counts = [r["num_response_steps"] for r in valid]
     approval_counts = [r["num_approval_required"] for r in valid]
@@ -194,33 +229,9 @@ def _compute_metrics(results: list[dict], total_time: float) -> dict:
         "total_alerts": n,
         "total_time_s": round(total_time, 1),
         "throughput_alerts_per_min": round(throughput, 1),
-        "latency": {
-            "triage": {"avg": _safe_mean(triage_lats), "p50": _safe_pct(triage_lats, 50), "p95": _safe_pct(triage_lats, 95)},
-            "verification": {"avg": _safe_mean(verif_lats), "p50": _safe_pct(verif_lats, 50), "p95": _safe_pct(verif_lats, 95)},
-            "response": {"avg": _safe_mean(resp_lats), "p50": _safe_pct(resp_lats, 50), "p95": _safe_pct(resp_lats, 95)},
-            "e2e": {"avg": _safe_mean(e2e_lats), "p50": _safe_pct(e2e_lats, 50), "p95": _safe_pct(e2e_lats, 95)},
-        },
-        "accuracy": {
-            "triage_raw": round(triage_acc, 1),
-            "triage_verified": round(verified_acc, 1),
-            "improvement": round(verified_acc - triage_acc, 1),
-            "fp_detection_rate": round(fp_rate, 1),
-            "fn_rate": round(fn_rate, 1),
-            "_triage_correct_count": triage_correct_count,
-            "_verified_correct_count": verified_correct_count,
-            "_fp_correct": fp_correct,
-            "_fp_total": len(fp_alerts),
-            "_fn_count": fn_count,
-            "_fn_total": len(tp_alerts),
-        },
-        "verification": {
-            "confirm_rate": round(confirm_rate, 1),
-            "adjust_rate": round(adjust_rate, 1),
-            "flag_rate": round(flag_rate, 1),
-            "adjustment_correct_rate": round(adj_correct_rate, 1),
-            "_adj_correct": adj_correct,
-            "_adj_total": len(adjustments),
-        },
+        "latency": _latency_metrics(valid),
+        "accuracy": _accuracy_metrics(valid, n),
+        "verification": _verification_metrics(valid, n),
         "response_plan": {
             "avg_steps": round(avg_steps, 1),
             "approval_required_rate": round(approval_rate, 1),

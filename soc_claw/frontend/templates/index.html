@@ -466,7 +466,7 @@ function renderTriage(result) {
 
 // ──────── Render Enrichment ────────
 function renderEnrichment(result) {
-    const calls = (result.triage_result || {})._tool_calls || [];
+    const calls = ((result.triage_result || {})._meta || {}).tool_calls || [];
     let html = '';
     calls.forEach(tc => {
         if (tc.tool === 'ip_reputation') {

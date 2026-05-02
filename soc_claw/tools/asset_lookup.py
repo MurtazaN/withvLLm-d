@@ -10,11 +10,12 @@ _logger = logging.getLogger("soc-claw.tools.asset_lookup")
 
 
 @lru_cache(maxsize=1)
-def _load_asset_inventory() -> tuple:
+def _load_asset_inventory(data_dir: Path | None = None) -> tuple:
     """Load and validate asset inventory. Cached after first call."""
     from soc_claw.schemas import Asset
 
-    with open(DATA_DIR / "asset_inventory.json") as f:
+    directory = data_dir or DATA_DIR
+    with open(directory / "asset_inventory.json") as f:
         raw = json.load(f)
     validated = []
     for i, item in enumerate(raw):
@@ -26,9 +27,9 @@ def _load_asset_inventory() -> tuple:
     return tuple(validated)
 
 
-def asset_lookup(hostname: str) -> dict:
+def asset_lookup(hostname: str, data_dir: Path | None = None) -> dict:
     """Retrieve asset information from CMDB/inventory."""
-    inventory = _load_asset_inventory()
+    inventory = _load_asset_inventory(data_dir)
 
     for asset in inventory:
         if asset["hostname"].upper() == hostname.upper():
@@ -51,11 +52,14 @@ class AssetLookupTool:
     name = "asset_lookup"
     description = "Provides CMDB asset inventory details including criticality, owner, and business function for hostnames."
 
+    def __init__(self, data_dir: Path | None = None):
+        self.data_dir = data_dir
+
     def run(self, alert: dict) -> dict:
         hostname = alert.get("hostname", "")
         if not hostname:
             return {}
-        return asset_lookup(hostname)
+        return asset_lookup(hostname, self.data_dir)
 
 
 register(AssetLookupTool())

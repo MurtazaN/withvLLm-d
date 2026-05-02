@@ -42,7 +42,9 @@ async def call_llm(
     user_content: str,
     schema_class,
     retry_hint: str,
+    retry_hint: str,
     default_factory=None,
+    client=None,
 ) -> LLMResult:
     """Shared LLM call scaffold used by all three agents.
 
@@ -88,7 +90,7 @@ async def call_llm(
         span.set_attribute("route", route)
         span.set_attribute("route.reason", reason)
         log_routing_decision(agent_name, route, reason, user_content)
-        client = get_client(route)
+        client_to_use = client or get_client(route)
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -99,7 +101,7 @@ async def call_llm(
 
         # ── First call ────────────────────────────────────────────
         inference_start = time.perf_counter()
-        response = await client.chat.completions.create(
+        response = await client_to_use.chat.completions.create(
             model=MODEL_NAME,
             messages=messages,
             **gj,
@@ -117,7 +119,7 @@ async def call_llm(
             used_retry = True
             messages.append({"role": "assistant", "content": content})
             messages.append({"role": "user", "content": retry_hint})
-            response = await client.chat.completions.create(
+            response = await client_to_use.chat.completions.create(
                 model=MODEL_NAME,
                 messages=messages,
                 **gj,
@@ -135,9 +137,11 @@ async def call_llm(
         span.set_attribute("used_default", used_default)
 
         # ── Attach telemetry metadata ─────────────────────────────
-        result["_inference_ms"] = inference_ms
-        result["_route"] = route
-        result["_raw_response"] = content
+        result.setdefault("_meta", {}).update({
+            "inference_ms": inference_ms,
+            "route": route,
+            "raw_response": content
+        })
 
         return LLMResult(
             result=result,

@@ -10,11 +10,12 @@ _logger = logging.getLogger("soc-claw.tools.ip_reputation")
 
 
 @lru_cache(maxsize=1)
-def _load_threat_intel() -> tuple:
+def _load_threat_intel(data_dir: Path | None = None) -> tuple:
     """Load and validate threat intel data. Cached after first call."""
     from soc_claw.schemas import ThreatIntelEntry
 
-    with open(DATA_DIR / "threat_intel.json") as f:
+    directory = data_dir or DATA_DIR
+    with open(directory / "threat_intel.json") as f:
         raw = json.load(f)
     validated = []
     for i, item in enumerate(raw):
@@ -27,9 +28,9 @@ def _load_threat_intel() -> tuple:
     return tuple(validated)
 
 
-def ip_reputation(ip: str) -> dict:
+def ip_reputation(ip: str, data_dir: Path | None = None) -> dict:
     """Look up IP address against threat intelligence database."""
-    threat_intel = _load_threat_intel()
+    threat_intel = _load_threat_intel(data_dir)
 
     for entry in threat_intel:
         if entry["type"] == "ip" and entry["indicator"] == ip:
@@ -65,15 +66,18 @@ class IPReputationTool:
     name = "ip_reputation"
     description = "Provides threat intelligence scores, tags, and known campaigns for IP addresses."
 
+    def __init__(self, data_dir: Path | None = None):
+        self.data_dir = data_dir
+
     def run(self, alert: dict) -> dict:
         results = {}
         dest_ip = alert.get("dest_ip")
         if dest_ip:
-            results["dest_ip"] = ip_reputation(dest_ip)
+            results["dest_ip"] = ip_reputation(dest_ip, self.data_dir)
             
         source_ip = alert.get("source_ip")
         if source_ip and not source_ip.startswith("10.") and not source_ip.startswith("192.168."):
-            results["source_ip"] = ip_reputation(source_ip)
+            results["source_ip"] = ip_reputation(source_ip, self.data_dir)
             
         return results
 

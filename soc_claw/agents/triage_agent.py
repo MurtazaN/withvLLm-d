@@ -145,6 +145,6 @@ async def run_triage(alert: dict, steering_context: str = None) -> dict:
     )
 
     # Attach enrichment metadata (triage-specific)
-    verdict["_tool_calls"] = tool_calls_log
+    verdict.setdefault("_meta", {})["tool_calls"] = tool_calls_log
 
     return verdict

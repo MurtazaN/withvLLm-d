@@ -11,11 +11,12 @@ _logger = logging.getLogger("soc-claw.tools.mitre_lookup")
 
 
 @lru_cache(maxsize=1)
-def _load_mitre_techniques() -> tuple:
+def _load_mitre_techniques(data_dir: Path | None = None) -> tuple:
     """Load and validate MITRE techniques. Cached after first call."""
     from soc_claw.schemas import MitreTechnique
 
-    with open(DATA_DIR / "mitre_techniques.json") as f:
+    directory = data_dir or DATA_DIR
+    with open(directory / "mitre_techniques.json") as f:
         raw = json.load(f)
     validated = []
     for i, item in enumerate(raw):
@@ -27,9 +28,9 @@ def _load_mitre_techniques() -> tuple:
     return tuple(validated)
 
 
-def mitre_lookup(behavior: str) -> list[dict]:
+def mitre_lookup(behavior: str, data_dir: Path | None = None) -> list[dict]:
     """Map observed behavior description to MITRE ATT&CK techniques."""
-    techniques = _load_mitre_techniques()
+    techniques = _load_mitre_techniques(data_dir)
     behavior_tokens = set(re.findall(r"[a-z0-9.]+", behavior.lower()))
 
     matches = []
@@ -54,11 +55,14 @@ class MitreLookupTool:
     name = "mitre_lookup"
     description = "Maps observed behavior (rules, payloads) to MITRE ATT&CK techniques with descriptions and tactics."
 
+    def __init__(self, data_dir: Path | None = None):
+        self.data_dir = data_dir
+
     def run(self, alert: dict) -> list[dict]:
         behavior = f"{alert.get('rule_name', '')} {alert.get('payload', '')}".strip()
         if not behavior:
             return []
-        return mitre_lookup(behavior)
+        return mitre_lookup(behavior, self.data_dir)
 
 
 register(MitreLookupTool())

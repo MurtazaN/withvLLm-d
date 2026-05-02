@@ -316,7 +316,6 @@ def load_validated_json(path: Path, schema, logger: logging.Logger) -> tuple:
 
 | # | Sev | Function | Lines | Issue |
 |---|-----|----------|-------|-------|
-| F1 | 🟡 | `_default_plan()` | 37 | Each plan step is a 150+ char single-line dict. Hard to read/diff. Break into multi-line dicts. |
 | F2 | 🟡 | `_compute_metrics()` | 75 | Sequential but long. Extract `_latency_metrics()`, `_accuracy_metrics()`, `_verification_metrics()`. |
 | F3 | 🟢 | `call_llm()` | 63 | Acceptable — well-commented stages. Could extract retry logic into a `_retry_llm_call()` helper. |
 | F4 | 🟢 | `_print_summary()` | 40 | Pure formatting — fine for its purpose. |

@@ -51,7 +51,8 @@ def merge_verdict(triage_result: dict, verification_result: dict) -> dict:
     decision = verification_result.get("decision", "confirmed")
 
     # Start with triage data (minus internal metadata)
-    final = {k: v for k, v in triage_result.items() if not k.startswith("_")}
+    final = triage_result.copy()
+    final.pop("_meta", None)
 
     # Add verification info
     final["verification_decision"] = decision
@@ -244,7 +245,7 @@ def execute_approved_action(
     }
 
 
-def load_alerts() -> list[dict]:
+def load_alerts(data_dir: Path | None = None) -> list[dict]:
     """Load all alerts from the data directory.
 
     Each alert is validated against the ``Alert`` schema. Invalid entries
@@ -253,7 +254,8 @@ def load_alerts() -> list[dict]:
     """
     from soc_claw.schemas import Alert
 
-    data_path = Path(__file__).parent / "data" / "alerts.json"
+    directory = data_dir or (Path(__file__).parent / "data")
+    data_path = directory / "alerts.json"
     with open(data_path) as f:
         raw = json.load(f)
 
