@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import logging
@@ -127,6 +128,21 @@ MODEL_NAME = os.environ.get(
     "SOC_CLAW_LOCAL_MODEL",
     "phi4-mini:3.8b",
 )
+
+# Semaphore that limits how many LLM API calls are in-flight to vLLM at once.
+# vLLM's continuous batching is most efficient when its request queue is
+# saturated — more concurrent calls = larger batches = better GPU utilisation.
+# Tune via SOC_CLAW_LLM_CONCURRENCY (default 10). This is independent of the
+# per-pipeline concurrency used by the harness/server.
+_LLM_SEM: asyncio.Semaphore | None = None
+
+
+def _get_llm_sem() -> asyncio.Semaphore:
+    global _LLM_SEM
+    if _LLM_SEM is None:
+        n = max(1, int(os.environ.get("SOC_CLAW_LLM_CONCURRENCY", "10")))
+        _LLM_SEM = asyncio.Semaphore(n)
+    return _LLM_SEM
 
 
 def log_routing_decision(agent_name: str, route: str, reason: str, prompt: str):
@@ -299,15 +315,21 @@ async def call_llm(
         ]
 
         gj = guided_json_kwargs(schema_class, route)
+        llm_sem = _get_llm_sem()
 
         # ── First call ────────────────────────────────────────────
-        inference_start = time.perf_counter()
-        response = await client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            **gj,
-        )
-        inference_ms = int((time.perf_counter() - inference_start) * 1000)
+        # Semaphore limits concurrent in-flight requests to vLLM so its
+        # continuous-batching scheduler always has a full queue to work with.
+        # Timing is measured inside the semaphore so it reflects actual LLM
+        # time, not queue-wait time.
+        async with llm_sem:
+            inference_start = time.perf_counter()
+            response = await client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=messages,
+                **gj,
+            )
+            inference_ms = int((time.perf_counter() - inference_start) * 1000)
         log_inference(agent_name, route, inference_ms)
 
         content = response.choices[0].message.content or ""
@@ -320,11 +342,12 @@ async def call_llm(
             used_retry = True
             messages.append({"role": "assistant", "content": content})
             messages.append({"role": "user", "content": retry_hint})
-            response = await client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=messages,
-                **gj,
-            )
+            async with llm_sem:
+                response = await client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=messages,
+                    **gj,
+                )
             content = response.choices[0].message.content or ""
             result = _try_parse(schema_class, content)
 
