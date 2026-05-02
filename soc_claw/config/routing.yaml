@@ -19,20 +19,23 @@ providers:
     base_url: https://api-inference.huggingface.co/models/fdtn-ai/Foundation-Sec-8B-Reasoning
     api_key_env: HUGGING_FACE_TOKEN
   vertex-ai:
-    base_url: https://vertexai.googleapis.com/v1/projects/your-project/locations/global/instances:predict
+    base_url: https://us-central1-aiplatform.googleapis.com/v1beta1/projects/YOUR_PROJECT_ID/locations/us-central1/endpoints/openapi
     api_key_env: VERTEX_AI_API_KEY
 
 # Per-agent default assignment.
-agents:
+# Replace 'your-project-id' with your actual Google Cloud Project ID in vertex-ai provider base_url
+# Successfull execution with every provider above.
   triage:
-    provider: ollama-from-container
-    model: mistral:7b-instruct                 # tool-using; mistral is solid
+    provider: vertex-ai
+    model: meta/llama-3.3-70b-instruct-maas             # tool-using; mistral is solid
   verifier:
     provider: ollama-from-container
-    model: phi4-mini:latest  #3.8b             # reasoning; phi-4 punches up
+    model: phi4-mini:latest  #3.8b                     # reasoning; phi-4 punches up
   response:
-    provider: openrouter
-    model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+    provider: vertex-ai
+    model: meta/llama-3.3-70b-instruct-maas
+    # provider: openrouter
+    # model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
 
 # Per-content overrides (matched in order; first match wins; 
 #  falls back to the agent default above).
