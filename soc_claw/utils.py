@@ -338,16 +338,23 @@ async def call_llm(
         used_default = False
 
         # ── Retry once ────────────────────────────────────────────
+        # When the retry fires, inference_ms below reflects the retry's
+        # latency (the call that produced the final result), not the first
+        # attempt — so log_inference and _inference_ms tell the user how
+        # long the response they actually got took to produce.
         if result is None:
             used_retry = True
             messages.append({"role": "assistant", "content": content})
             messages.append({"role": "user", "content": retry_hint})
             async with llm_sem:
+                retry_start = time.perf_counter()
                 response = await client.chat.completions.create(
                     model=MODEL_NAME,
                     messages=messages,
                     **gj,
                 )
+                inference_ms = int((time.perf_counter() - retry_start) * 1000)
+            log_inference(agent_name, route, inference_ms)
             content = response.choices[0].message.content or ""
             result = _try_parse(schema_class, content)
 

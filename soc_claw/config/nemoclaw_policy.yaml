@@ -85,6 +85,11 @@ triage_rails:
 
 response_rails:
 
+  # Default behaviour for action types not listed in action_matrix below.
+  # deny  (default): reject — fail-closed, safer for a security tool.
+  # allow: log and permit — only use this if you trust all callers.
+  unknown_action_policy: deny
+
   # Action authorization matrix.
   # allowed_severities: severity levels that may trigger this action type.
   # requires_approval:  true means the UI must get an explicit analyst click;

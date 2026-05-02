@@ -215,14 +215,23 @@ def execute_approved_action(
     target = action.get("target", "")
     reasoning = action.get("reasoning", "")
     alert_id = alert.get("id", "unknown") if alert else "unknown"
-    severity = action.get("_severity", "P3")
-    confidence = action.get("_confidence", 100)
+    severity = str(action.get("_severity", "P3")).upper()
+    # Coerce confidence — JSON callers may send strings or omit the field.
+    raw_conf = action.get("_confidence", 100)
+    try:
+        confidence = int(raw_conf)
+    except (TypeError, ValueError):
+        confidence = 0
+
+    # Record who approved this action so guardrails can verify the approval
+    # marker is present for actions where requires_approval is true.
+    action["_approved_by"] = analyst
 
     log_analyst_action(alert_id, "approve", f"{action_type}: {target} (by {analyst})")
 
-    # Guardrails check: severity authorization, blast-radius, protected assets.
-    # Raises GuardrailViolation if the action is not permitted; the caller
-    # (api_approve) converts that to a 403 response.
+    # Guardrails check: severity authorization, approval marker, blast-radius,
+    # protected assets. Raises GuardrailViolation if the action is not
+    # permitted; the caller (api_approve) converts that to a 403 response.
     check_action(action, severity=severity, confidence=confidence, analyst=analyst)
 
     if action_type == "isolate_host":

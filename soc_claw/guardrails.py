@@ -74,6 +74,21 @@ def _count_recent_actions(action_type: str, window_secs: int = 3600) -> int:
     return len(dq)
 
 
+def _coerce_int(value, default: int = 0) -> int:
+    """Best-effort int coercion for values that arrive over JSON.
+
+    Returns default for None, non-numeric strings, or any TypeError. Used
+    on confidence fields before they reach the condition evaluator, which
+    compares numerically and would raise on str/None.
+    """
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _record_severity(severity: str, window_size: int) -> None:
     _recent_severities.append(severity)
     while len(_recent_severities) > window_size:
@@ -209,7 +224,7 @@ def check_triage_output(triage_result: dict, alert: dict) -> dict:
     audit = policy.get("audit", {})
 
     severity = triage_result.get("severity", "P3")
-    confidence = triage_result.get("confidence", 0)
+    confidence = _coerce_int(triage_result.get("confidence"), default=0)
     asset_criticality = triage_result.get("asset_criticality", "medium")
     iocs = triage_result.get("iocs_found", [])
     alert_id = alert.get("id", "unknown")
@@ -260,8 +275,9 @@ def check_triage_output(triage_result: dict, alert: dict) -> dict:
     # Force-review conditions
     ctx = {"severity": severity, "asset_criticality": asset_criticality, "confidence": confidence}
     for rule in rail.get("force_review_conditions", []):
-        if _eval_condition(rule.get("condition", ""), ctx):
-            flags.append(f"force_review: {rule.get('reason', rule['condition'])}")
+        condition = rule.get("condition", "")
+        if condition and _eval_condition(condition, ctx):
+            flags.append(f"force_review: {rule.get('reason', condition)}")
 
     if flags and audit.get("log_guardrail_flags"):
         logger.info(
@@ -302,21 +318,28 @@ def check_action(
 
     action_type = action.get("action_type", "")
     target = action.get("target", "")
+    confidence = _coerce_int(confidence, default=0)
     ctx = {"severity": severity, "confidence": confidence}
 
     matrix = resp_rails.get("action_matrix", {})
     rule = matrix.get(action_type)
 
     if rule is None:
-        # Unknown action type — log and allow (fail-open for future action types)
-        logger.warning(
-            "guardrail_unknown_action",
-            extra={
-                "event": "guardrail_unknown_action",
-                "action_type": action_type,
-                "analyst": analyst,
-            },
-        )
+        # Unknown action type — fail closed by default (safer for a security
+        # tool). Set response_rails.unknown_action_policy: allow in the YAML
+        # to opt into the legacy log-and-permit behaviour.
+        unknown_policy = resp_rails.get("unknown_action_policy", "deny")
+        _log_violation(audit, "response.unknown_action", {
+            "action_type": action_type,
+            "policy": unknown_policy,
+            "analyst": analyst,
+        })
+        if unknown_policy == "deny":
+            raise GuardrailViolation(
+                "response.unknown_action",
+                f"Action {action_type!r} is not in the action_matrix. "
+                f"Add it to nemoclaw_policy.yaml or set unknown_action_policy: allow.",
+            )
         return
 
     # ── Severity check ────────────────────────────────────────────────────
@@ -333,6 +356,24 @@ def check_action(
             f"Action {action_type!r} is not permitted for severity {severity}. "
             f"Allowed severities: {allowed}",
         )
+
+    # ── Approval marker check ─────────────────────────────────────────────
+    # When the policy says requires_approval, the caller must record who
+    # approved the action by setting action["_approved_by"] (the server
+    # populates this from the authenticated session). Catches CLI/test
+    # paths that bypass the analyst-click flow.
+    if rule.get("requires_approval"):
+        approver = action.get("_approved_by")
+        if not approver:
+            _log_violation(audit, f"response.{action_type}.missing_approval", {
+                "action_type": action_type,
+                "analyst": analyst,
+            })
+            raise GuardrailViolation(
+                f"response.{action_type}.missing_approval",
+                f"Action {action_type!r} requires explicit analyst approval "
+                f"(action['_approved_by']) but none was recorded.",
+            )
 
     # ── Blast-radius check ────────────────────────────────────────────────
     blast = rule.get("blast_radius") or {}
@@ -352,10 +393,14 @@ def check_action(
                 f"{recent}/{max_per_hour} executions in the last hour.",
             )
 
-    # ── Protected-asset check (destructive actions only) ──────────────────
-    if action_type in ("isolate_host", "block_ioc"):
+    # ── Protected-asset check (host isolation only) ───────────────────────
+    # block_ioc targets are IPs / domains / hashes, not hostnames, so the
+    # protected_assets list (and require_for_isolation key) only applies
+    # to isolate_host. Hostname comparison is case-insensitive.
+    if action_type == "isolate_host":
+        target_norm = str(target).casefold()
         for asset in resp_rails.get("protected_assets", []):
-            if asset.get("hostname") == target:
+            if str(asset.get("hostname", "")).casefold() == target_norm:
                 for cond in asset.get("require_for_isolation", []):
                     if not _eval_condition(cond, ctx):
                         _log_violation(audit, "response.protected_asset", {
