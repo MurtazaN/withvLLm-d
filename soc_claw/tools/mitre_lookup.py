@@ -10,22 +10,15 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 _logger = logging.getLogger("soc-claw.tools.mitre_lookup")
 
 
+from soc_claw.utils import load_validated_json
+
 @lru_cache(maxsize=1)
 def _load_mitre_techniques(data_dir: Path | None = None) -> tuple:
     """Load and validate MITRE techniques. Cached after first call."""
     from soc_claw.schemas import MitreTechnique
 
     directory = data_dir or DATA_DIR
-    with open(directory / "mitre_techniques.json") as f:
-        raw = json.load(f)
-    validated = []
-    for i, item in enumerate(raw):
-        try:
-            tech = MitreTechnique.model_validate(item)
-            validated.append(tech.model_dump())
-        except Exception as exc:
-            _logger.warning("Skipping invalid mitre_technique at index %d: %s", i, exc)
-    return tuple(validated)
+    return load_validated_json(directory / "mitre_techniques.json", MitreTechnique, _logger)
 
 
 def mitre_lookup(behavior: str, data_dir: Path | None = None) -> list[dict]:

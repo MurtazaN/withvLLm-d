@@ -36,3 +36,20 @@ from soc_claw.audit import (  # noqa: F401
     log_tool_call,
     log_verification,
 )
+
+import json
+import logging
+from pathlib import Path
+
+
+def load_validated_json(path: Path, schema, logger: logging.Logger) -> tuple:
+    """Load JSON from path, validate each element against schema, and return tuple."""
+    with open(path) as f:
+        raw = json.load(f)
+    out = []
+    for i, item in enumerate(raw):
+        try:
+            out.append(schema.model_validate(item).model_dump())
+        except Exception as e:
+            logger.warning("Skipping invalid entry at index %d: %s", i, e)
+    return tuple(out)
