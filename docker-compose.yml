@@ -50,3 +50,11 @@ services:
     entrypoint: ["python", "-m", "soc_claw.benchmark.harness"]
     command: ["30"]
     restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    container_name: soc-claw-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped

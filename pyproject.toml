@@ -23,6 +23,8 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.50b0,<0.51",
     "opentelemetry-instrumentation-httpx>=0.50b0,<0.51",
     "fastapi-guard>=7.0.0",
+    "cachetools>=5.3",
+    "redis>=5",
 ]
 
 # vLLM is intentionally NOT a project dependency. It is a host-only GPU
