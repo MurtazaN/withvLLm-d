@@ -49,6 +49,6 @@ testpaths = ["tests"]
 packages = ["soc_claw"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"soc_claw/data" = "soc_claw/data"
+"soc_claw/mock_data" = "soc_claw/mock_data"
 "soc_claw/config" = "soc_claw/config"
 "soc_claw/frontend/templates" = "soc_claw/frontend/templates"

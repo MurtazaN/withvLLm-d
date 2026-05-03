@@ -254,7 +254,7 @@ def load_alerts(data_dir: Path | None = None) -> list[dict]:
     """
     from soc_claw.schemas import Alert
 
-    directory = data_dir or (Path(__file__).parent / "data")
+    directory = data_dir or (Path(__file__).parent / "mock_data")
     data_path = directory / "alerts.json"
     with open(data_path) as f:
         raw = json.load(f)

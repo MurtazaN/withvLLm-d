@@ -19,12 +19,13 @@ providers:
     base_url: https://api-inference.huggingface.co/models/fdtn-ai/Foundation-Sec-8B-Reasoning
     api_key_env: HUGGING_FACE_TOKEN
   vertex-ai:
-    base_url: https://us-central1-aiplatform.googleapis.com/v1beta1/projects/YOUR_PROJECT_ID/locations/us-central1/endpoints/openapi
+    base_url: https://us-central1-aiplatform.googleapis.com/v1beta1/projects/github-actions-485720/locations/us-central1/endpoints/openapi
     api_key_env: VERTEX_AI_API_KEY
 
 # Per-agent default assignment.
 # Replace 'your-project-id' with your actual Google Cloud Project ID in vertex-ai provider base_url
 # Successfull execution with every provider above.
+agents:
   triage:
     provider: vertex-ai
     model: meta/llama-3.3-70b-instruct-maas             # tool-using; mistral is solid

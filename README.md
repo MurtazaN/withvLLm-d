@@ -142,7 +142,9 @@ cp .env.example .env
 
 # 3. Setup and Run
 
-docker compose up --build
+docker compose build --no-cache app
+
+docker compose up
 
 # 4. Open http://localhost:7860
 

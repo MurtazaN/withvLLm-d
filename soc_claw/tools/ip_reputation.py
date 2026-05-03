@@ -5,7 +5,7 @@ from pathlib import Path
 
 from soc_claw.tools.registry import register
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent / "mock_data"
 _logger = logging.getLogger("soc-claw.tools.ip_reputation")
 
 
