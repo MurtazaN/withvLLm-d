@@ -36,6 +36,10 @@ providers:
     model: meta/llama-3.3-70b-instruct-maas
     # provider: openrouter
     # model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+    # provider: hugging-face
+    # model: fdtn-ai/Foundation-Sec-8B-Reasoning
+    # provider: vllm-local
+    # model: nvidia/Nemotron-Mini-4B-Instruct
 
 # Per-content overrides (matched in order; first match wins; 
 #  falls back to the agent default above).

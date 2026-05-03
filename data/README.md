@@ -11,3 +11,9 @@
 - **Purpose**: It serves as the knowledge base for the Response Agent. The agent uses Retrieval-Augmented Generation (RAG) to find and apply the most relevant playbook steps for a verified incident.
 - **Structure**: Each line contains a complete playbook, including: `playbook_id`, `title`, `description`, `severity`, `tactic`, and a list of `steps` (each with `order`, `action`, and `rationale`).
 - Source: https://www.kaggle.com/datasets/cyberprince/incident-response-playbook-dataset?select=incident_response_playbook_dataset.jsonl
+
+## threat_intel_data.json (Real Threat Intelligence)
+- This file contains real-world Indicators of Compromise (IOCs) harvested from Abuse.ch ThreatFox (recent exports).
+- **Purpose**: It provides the Triage Agent with up-to-date, real-world malicious IPs and associated threat data to validate against live network traffic.
+- **Structure**: A list of objects, each containing `indicator` (IP address), `threat_score`, `tags` (including malware families like Cobalt Strike, AsyncRAT), `first_seen`, and `last_seen` timestamps.
+- Source: Fetched live from https://threatfox.abuse.ch/export/json/recent/

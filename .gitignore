@@ -24,3 +24,6 @@ soc_claw/frontend/styles/node_modules/
 
 # Benchmark output (regenerated each run)
 soc_claw/benchmark/results/*.csv
+
+# Data
+data/
