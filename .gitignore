@@ -27,3 +27,5 @@ soc_claw/benchmark/results/*.csv
 
 # Data
 data/
+
+AGENTS.md
