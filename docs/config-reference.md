@@ -59,6 +59,14 @@ All runtime config is env-driven. Copy `.env.example` to `.env` and edit.
 | `BENCHMARK_OUTPUT_DIR` | `soc_claw/benchmark/results/` (host) | Compose overrides to `/app/soc_claw/benchmark/results`. |
 | `SOC_CLAW_CONCURRENCY` | `5` | Alerts processed in parallel by the harness and `/api/run-all`. |
 
+## Pinecone RAG
+
+| Var | Default | Purpose |
+| --- | --- | --- |
+| `PINECONE_API_KEY` | `local` | API key used by the Pinecone SDK. Pinecone Local accepts any value. |
+| `PINECONE_HOST` | — | Pinecone data-plane host (e.g., `http://pinecone:5080` for Pinecone Local). |
+| `PINECONE_INDEX_NAME` | `soc-claw-playbooks` | Index name for playbook vectors. |
+
 ## Production target
 
 For llm-d / k8s: same image ships unchanged. Secrets become a k8s `Secret`; config a `ConfigMap` mounted as env.

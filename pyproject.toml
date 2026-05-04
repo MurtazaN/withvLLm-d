@@ -25,6 +25,8 @@ dependencies = [
     "fastapi-guard>=7.0.0",
     "cachetools>=5.3",
     "redis>=5",
+    "pinecone>=6",
+    "sentence-transformers",
 ]
 
 # vLLM is intentionally NOT a project dependency. It is a host-only GPU

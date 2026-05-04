@@ -46,6 +46,7 @@ RUN uv export --frozen --no-hashes --no-emit-project --format requirements-txt >
 
 # Application source.
 COPY soc_claw/ /app/soc_claw/
+COPY data/ /app/data/
 
 # Built frontend assets from stage 1 (tailwind.css + fonts).
 COPY --from=frontend-build /build/static /app/soc_claw/frontend/static

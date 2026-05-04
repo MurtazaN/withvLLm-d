@@ -1,14 +1,21 @@
+import asyncio
 import json
+import logging
 
 from soc_claw.audit import log_response_plan
 from soc_claw.llm import call_llm
 from soc_claw.schemas import ResponsePlan
+from soc_claw.rag.retrieve import retrieve
+
+_logger = logging.getLogger("soc-claw.response")
 
 SYSTEM_PROMPT = """You are a SOC incident responder. You receive a triaged and VERIFIED security alert with a final severity score, enrichment context, and verification status. Your job is to produce a prioritized response plan with specific next steps for the analyst to review and approve.
 
 You do NOT execute actions directly. You RECOMMEND actions. The analyst will review each step and approve or reject it before execution. This is critical — automated containment without human approval is dangerous in production environments.
 
 IMPORTANT: Use the "verified_severity" field, NOT the "original_severity". The Verifier Agent may have adjusted the severity. Always plan based on the verified/final verdict.
+
+When playbook snippets are provided, use them to tailor the response actions. If no snippets are provided, plan from the alert and verdict alone.
 
 RESPONSE PLANNING BY SEVERITY:
 
@@ -91,6 +98,20 @@ _RETRY_HINT = (
 )
 
 
+def _format_playbook_context(playbooks: list[dict]) -> str:
+    lines = ["PLAYBOOK SNIPPETS (from Pinecone):"]
+    for pb in playbooks:
+        title = pb.get("title") or pb.get("playbook_id", "")
+        techniques = ", ".join(pb.get("technique_ids", []))
+        snippet = pb.get("snippet", "")
+        lines.append(f"- {title}")
+        if techniques:
+            lines.append(f"  Techniques: {techniques}")
+        if snippet:
+            lines.append(f"  Steps: {snippet}")
+    return "\n".join(lines)
+
+
 async def run_response(alert: dict, final_verdict: dict, steering_context: str = None) -> dict:
     """Run the Response Agent on a verified alert verdict.
 
@@ -102,14 +123,22 @@ async def run_response(alert: dict, final_verdict: dict, steering_context: str =
     verdict_for_agent = {k: v for k, v in final_verdict.items() if not k.startswith("_")}
     verdict_json = json.dumps(verdict_for_agent, indent=2)
 
+    technique_ids = final_verdict.get("mitre_techniques", [])
+    playbooks: list[dict] = []
+    if technique_ids:
+        try:
+            playbooks = await asyncio.to_thread(retrieve, technique_ids, 3)
+        except Exception as exc:
+            _logger.warning("playbook retrieval failed: %s", exc)
+
+    blocks = []
     if steering_context:
-        user_content = (
-            f"ANALYST CONTEXT: {steering_context}\n\n"
-            f"ALERT:\n{alert_json}\n\n"
-            f"FINAL VERDICT:\n{verdict_json}"
-        )
-    else:
-        user_content = f"ALERT:\n{alert_json}\n\nFINAL VERDICT:\n{verdict_json}"
+        blocks.append(f"ANALYST CONTEXT: {steering_context}")
+    if playbooks:
+        blocks.append(_format_playbook_context(playbooks))
+    blocks.append(f"ALERT:\n{alert_json}")
+    blocks.append(f"FINAL VERDICT:\n{verdict_json}")
+    user_content = "\n\n".join(blocks)
 
     def _default():
         severity = final_verdict.get("verified_severity", final_verdict.get("severity", "P3"))
@@ -123,6 +152,8 @@ async def run_response(alert: dict, final_verdict: dict, steering_context: str =
         retry_hint=_RETRY_HINT,
         default_factory=_default,
     )
+
+    result["playbook_snippets"] = playbooks
 
     # Log the response plan
     plan = result.get("response_plan", [])

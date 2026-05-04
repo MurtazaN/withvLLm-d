@@ -33,8 +33,8 @@ def _client_for(cfg: dict, provider_name: str) -> AsyncOpenAI:
     return AsyncOpenAI(base_url=base_url, api_key=api_key)
 
 
-def select_endpoint(agent: str, prompt: str) -> tuple[AsyncOpenAI, str, str]:
-    """Return (client, model_name, reason) for the given agent and prompt.
+def select_endpoint(agent: str, prompt: str) -> tuple[AsyncOpenAI, str, str, str]:
+    """Return (client, model_name, provider_name, reason) for the given agent and prompt.
 
     Resolution order:
       1. ``force`` block
@@ -47,16 +47,18 @@ def select_endpoint(agent: str, prompt: str) -> tuple[AsyncOpenAI, str, str]:
     force_provider = cfg["force"]["provider"]
     force_model = cfg["force"]["model"]
     if force_provider and force_model:
-        return _client_for(cfg, force_provider), force_model, "force override"
+        return _client_for(cfg, force_provider), force_model, force_provider, "force override"
 
     # 2 — Content-based rule (first match wins)
     for rule in cfg["content_routes"]:
         if re.search(rule["when"], prompt):
-            return _client_for(cfg, rule["provider"]), rule["model"], f"content: {rule['when']}"
+            return _client_for(cfg, rule["provider"]), rule["model"], rule["provider"], f"content: {rule['when']}"
 
     # 3 — Agent default
     agent_cfg = cfg["agents"][agent]
-    return _client_for(cfg, agent_cfg["provider"]), agent_cfg["model"], f"agent default: {agent}"
+    provider = agent_cfg["provider"]
+    model = agent_cfg["model"]
+    return _client_for(cfg, provider), model, provider, f"agent default: {agent}"
 
 
 def guided_json_kwargs(schema_class, provider: str) -> dict:

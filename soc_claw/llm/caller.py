@@ -80,7 +80,7 @@ async def call_llm(
     tracer = get_tracer()
 
     # ── Resolve endpoint from routing.yaml ─────────────────────
-    selected_client, model_name, reason = select_endpoint(agent_name, user_content)
+    selected_client, model_name, provider_name, reason = select_endpoint(agent_name, user_content)
     client_to_use = client or selected_client
     route = reason  # use the reason string as the route label
 
@@ -90,7 +90,7 @@ async def call_llm(
     ) as span:
         span.set_attribute("route", route)
         span.set_attribute("route.reason", reason)
-        log_routing_decision(agent_name, route, reason, user_content)
+        log_routing_decision(agent_name, route, reason, user_content, provider_name, model_name)
 
         messages = [
             {"role": "system", "content": system_prompt},

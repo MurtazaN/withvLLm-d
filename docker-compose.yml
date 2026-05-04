@@ -25,6 +25,9 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       SOC_CLAW_LOG_LEVEL: ${SOC_CLAW_LOG_LEVEL:-INFO}
       SOC_CLAW_LOG_FILE: ${SOC_CLAW_LOG_FILE:-}
+      PINECONE_API_KEY: ${PINECONE_API_KEY:-local}
+      PINECONE_HOST: ${PINECONE_HOST:-http://pinecone:5080}
+      PINECONE_INDEX_NAME: ${PINECONE_INDEX_NAME:-soc-claw-playbooks}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -43,6 +46,9 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       SOC_CLAW_LOG_LEVEL: ${SOC_CLAW_LOG_LEVEL:-WARNING}
       SOC_CLAW_LOG_FILE: ${SOC_CLAW_LOG_FILE:-}
+      PINECONE_API_KEY: ${PINECONE_API_KEY:-local}
+      PINECONE_HOST: ${PINECONE_HOST:-http://pinecone:5080}
+      PINECONE_INDEX_NAME: ${PINECONE_INDEX_NAME:-soc-claw-playbooks}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -58,3 +64,37 @@ services:
       - "127.0.0.1:6379:6379"
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     restart: unless-stopped
+
+  pinecone:
+    image: ghcr.io/pinecone-io/pinecone-local:latest
+    container_name: soc-claw-pinecone
+    environment:
+      PORT: 5080
+      # Hostname baked into per-index URLs returned by describe_index.
+      # Must (a) be reachable from sibling containers and (b) contain a `.`
+      # to satisfy the v6 client's check_realistic_host validator.
+      PINECONE_HOST: pinecone.local
+      PINECONE_API_KEY: ${PINECONE_API_KEY:-local}
+    networks:
+      default:
+        aliases:
+          - pinecone.local
+    ports:
+      - "5080-5090:5080-5090"
+    platform: linux/amd64
+    restart: unless-stopped
+
+  rag-seed:
+    build: .
+    image: soc-claw:dev
+    container_name: soc-claw-rag-seed
+    env_file:
+      - .env
+    environment:
+      PINECONE_API_KEY: ${PINECONE_API_KEY:-local}
+      PINECONE_HOST: ${PINECONE_HOST:-http://pinecone:5080}
+      PINECONE_INDEX_NAME: ${PINECONE_INDEX_NAME:-soc-claw-playbooks}
+    depends_on:
+      - pinecone
+    entrypoint: ["python", "-m", "soc_claw.rag.index", "--wait"]
+    restart: "no"

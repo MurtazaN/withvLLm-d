@@ -12,6 +12,9 @@ providers:
   vllm-local:
     base_url: http://localhost:8000/v1
     api_key_env: "dummy-key"                       # vLLM doesn't need one 
+  nvidia-nim:
+    base_url: https://integrate.api.nvidia.com/v1
+    api_key_env: NVIDIA_API_KEY
   openrouter:
     base_url: https://openrouter.ai/api/v1
     api_key_env: OPENROUTER_API_KEY
@@ -27,20 +30,24 @@ providers:
 # Successfull execution with every provider above.
 agents:
   triage:
-    provider: vertex-ai
-    model: meta/llama-3.3-70b-instruct-maas             # tool-using; mistral is solid
+    provider: nvidia-nim
+    model: z-ai/glm4.7
   verifier:
-    provider: ollama-from-container
-    model: phi4-mini:latest  #3.8b                     # reasoning; phi-4 punches up
+    provider: nvidia-nim
+    model: minimaxai/minimax-m2.7
   response:
-    provider: vertex-ai
-    model: meta/llama-3.3-70b-instruct-maas
+    provider: nvidia-nim
+    model: meta/llama-guard-4-12b #qwen/qwen3-coder-480b-a35b-instruct
+    # provider: vertex-ai
+    # model: meta/llama-3.3-70b-instruct-maas
     # provider: openrouter
     # model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
     # provider: hugging-face
     # model: fdtn-ai/Foundation-Sec-8B-Reasoning
     # provider: vllm-local
     # model: nvidia/Nemotron-Mini-4B-Instruct
+    # provider: ollama-from-container
+    # model: mistral:7b-instruct
 
 # Per-content overrides (matched in order; first match wins; 
 #  falls back to the agent default above).

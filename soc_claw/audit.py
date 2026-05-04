@@ -14,7 +14,14 @@ import logging
 logger = logging.getLogger("soc-claw.audit")
 
 
-def log_routing_decision(agent_name: str, route: str, reason: str, prompt: str):
+def log_routing_decision(
+    agent_name: str,
+    route: str,
+    reason: str,
+    prompt: str,
+    provider: str | None = None,
+    model: str | None = None,
+):
     """Log a privacy routing decision."""
     prompt_hash = hashlib.sha256(prompt[:500].encode()).hexdigest()[:12]
     logger.info(
@@ -25,6 +32,8 @@ def log_routing_decision(agent_name: str, route: str, reason: str, prompt: str):
             "route": route,
             "reason": reason,
             "prompt_hash": prompt_hash,
+            "provider": provider,
+            "model": model,
         },
     )
 
