@@ -28,4 +28,6 @@ soc_claw/benchmark/results/*.csv
 # Data
 data/
 
+# Opencode and graphify
 AGENTS.md
+graphify-out/

@@ -4,15 +4,23 @@ import asyncio
 import json
 import logging
 import os
+import time
 from typing import Optional
 
 from aiokafka import AIOKafkaConsumer
-from opentelemetry import metrics
+from opentelemetry import metrics  # noqa: F401  (kept for direct OTel access)
 
 from soc_claw.pipeline import run_pipeline
 from soc_claw.connectors.output_gcp import upload_result
 from soc_claw.connectors.dlq_kafka import send_to_dlq
 from soc_claw.connectors.base import ErrorType
+from soc_claw.connectors.metrics import (
+    record_alert_processed,
+    record_alert_dropped,
+    record_alert_dlq,
+    record_kafka_message_consumed,
+    record_processing_latency,
+)
 
 logger = logging.getLogger("soc_claw.connectors.kafka_consumer")
 
@@ -30,6 +38,7 @@ RETRY_DELAY = 30
 
 # Global consumer instance
 _consumer: Optional[AIOKafkaConsumer] = None
+_consumer_task: Optional[asyncio.Task] = None
 _running = False
 
 
@@ -103,12 +112,21 @@ async def process_alert(alert: dict, source: str = "unknown") -> bool:
             )
 
             # Run pipeline with timeout
+            started_at = time.perf_counter()
             result = await asyncio.wait_for(
                 run_pipeline(alert), timeout=PIPELINE_TIMEOUT
             )
+            record_processing_latency(time.perf_counter() - started_at)
 
             # Upload result to GCP
             await upload_result(result)
+
+            severity = (
+                result.get("final_verdict", {}).get("verified_severity")
+                or result.get("triage_result", {}).get("severity")
+                or "unknown"
+            )
+            record_alert_processed(severity)
 
             logger.info(
                 f"Successfully processed alert {alert.get('id', 'unknown')}",
@@ -126,6 +144,7 @@ async def process_alert(alert: dict, source: str = "unknown") -> bool:
                 "Pipeline timeout",
                 source,
             )
+            record_alert_dlq(ErrorType.PIPELINE_TIMEOUT.value)
             return False
 
         except Exception as e:
@@ -161,6 +180,7 @@ async def process_alert(alert: dict, source: str = "unknown") -> bool:
                     f"Service unavailable after {RETRY_COUNT} retries: {e}",
                     source,
                 )
+                record_alert_dlq(ErrorType.SERVICE_UNAVAILABLE.value)
                 return False
 
 
@@ -185,6 +205,7 @@ async def consume_alerts():
             # Poll for messages
             async for message in consumer:
                 try:
+                    record_kafka_message_consumed(TOPIC_ALERTS)
                     alert = message.value
                     source = message.headers.get("source", "unknown") if message.headers else "unknown"
 
@@ -201,6 +222,7 @@ async def consume_alerts():
                     _running = False
                     break
                 except Exception as e:
+                    record_alert_dropped("consumer_exception")
                     logger.error(f"Error processing message: {e}")
                     # Don't commit offset on failure
                     continue
@@ -215,24 +237,32 @@ async def consume_alerts():
 
 async def start_consumer():
     """Start the Kafka consumer in background."""
-    global _running
+    global _consumer_task
 
-    if _running:
+    if _consumer_task and not _consumer_task.done():
         logger.warning("Kafka consumer already running")
         return
 
-    # Create consumer task
-    task = asyncio.create_task(consume_alerts())
+    # Hold a strong reference at module level so the task isn't GC'd
+    # mid-flight (asyncio only weak-refs background tasks).
+    _consumer_task = asyncio.create_task(consume_alerts())
     logger.info("Kafka consumer started in background")
 
 
 async def stop_consumer():
     """Stop the Kafka consumer."""
-    global _running
+    global _running, _consumer_task
 
-    if not _running:
+    if not _consumer_task or _consumer_task.done():
         logger.warning("Kafka consumer not running")
         return
 
     _running = False
-    logger.info("Stopping Kafka consumer...")
+    _consumer_task.cancel()
+    try:
+        await _consumer_task
+    except asyncio.CancelledError:
+        pass
+    _consumer_task = None
+    await shutdown_consumer()
+    logger.info("Kafka consumer stopped")

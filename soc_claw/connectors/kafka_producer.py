@@ -8,7 +8,12 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from aiokafka import AIOKafkaProducer
-from opentelemetry import metrics
+from opentelemetry import metrics  # noqa: F401  (kept for direct OTel access)
+
+from soc_claw.connectors.metrics import (
+    record_kafka_message_published,
+    record_kafka_publish_error,
+)
 
 logger = logging.getLogger("soc_claw.connectors.kafka_producer")
 
@@ -85,12 +90,14 @@ async def publish_alert(alert: dict, source: str = "unknown") -> bool:
             value=json.dumps(alert).encode(),
             key=alert["id"].encode(),
         )
+        record_kafka_message_published("soc-claw-alerts")
         logger.info(
             f"Published alert {alert['id']} from {source} to Kafka",
             extra={"alert_id": alert["id"], "source": source},
         )
         return True
     except Exception as e:
+        record_kafka_publish_error("soc-claw-alerts", type(e).__name__)
         logger.error(f"Failed to publish alert {alert.get('id', 'unknown')}: {e}")
         return False
 
@@ -132,11 +139,13 @@ async def publish_to_dlq(
             value=json.dumps(dlq_entry).encode(),
             key=alert.get("id", "unknown").encode(),
         )
+        record_kafka_message_published("soc-claw-alerts-dlq")
         logger.error(
             f"Sent alert {alert.get('id', 'unknown')} to DLQ: {error_type}",
             extra={"alert_id": alert.get("id", "unknown"), "error_type": error_type},
         )
         return True
     except Exception as e:
+        record_kafka_publish_error("soc-claw-alerts-dlq", type(e).__name__)
         logger.error(f"Failed to send alert to DLQ: {e}")
         return False

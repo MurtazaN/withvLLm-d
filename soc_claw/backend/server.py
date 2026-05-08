@@ -137,6 +137,21 @@ async def startup_event():
     """Start background services on startup."""
     logger.info("Starting SOC-Claw backend")
 
+    # Async Redis client for batch-job tracking. Read by routes via
+    # request.app.state.redis; left as None when SOC_CLAW_REDIS_URL is
+    # unset, in which case batch endpoints respond 503.
+    app.state.redis = None
+    redis_url = os.environ.get("SOC_CLAW_REDIS_URL", "").strip()
+    if redis_url:
+        try:
+            from redis.asyncio import Redis
+            client = Redis.from_url(redis_url, decode_responses=True)
+            await client.ping()
+            app.state.redis = client
+            logger.info("Redis client connected for batch-job tracking")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis ({redis_url}): {e}")
+
     # Start GCS poller
     try:
         from soc_claw.connectors.gcs_poller import start_gcs_poller
@@ -190,6 +205,14 @@ async def shutdown_event():
         logger.info("DLQ reprocessor stopped")
     except Exception as e:
         logger.error(f"Failed to stop DLQ reprocessor: {e}")
+
+    # Close Redis client
+    if getattr(app.state, "redis", None):
+        try:
+            await app.state.redis.aclose()
+            logger.info("Redis client closed")
+        except Exception as e:
+            logger.error(f"Failed to close Redis client: {e}")
 
 
 if __name__ == "__main__":

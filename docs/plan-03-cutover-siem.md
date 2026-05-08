@@ -1,7 +1,7 @@
 # Plan 03 — Cutover: SIEM Alert Ingress
 
 **Parent:** [production_data_architecture.md](production_data_architecture.md), step 4 (per-source cutover)
-**Status:** Draft — step list to flesh out at implementation time once the target SIEM is chosen.
+**Status:** Implemented — v1 landed on branch `feature/SIEM_ingestion_kafka-queue`. Known v1 limitations and v2 carry-overs are tracked in *Implementation status* below.
 
 ## Goal
 
@@ -29,10 +29,11 @@ Replace the static [data/advanced_siem_dataset.jsonl](../data/advanced_siem_data
 | Batch ingress | FastAPI batch API (asynchronous) | For batch JSONL uploads, returns job ID immediately |
 | Queue | Kafka topic (single source of truth) | Kafka is purpose-built for event streaming, durable, replayable |
 | Schema | Normalize to existing `Alert` pydantic schema | Keeps downstream call sites unchanged |
-| Webhook auth | HMAC-SHA256 over body, per-tenant secret | Industry-standard webhook signing |
+| Webhook auth | HMAC-SHA256 over body, single global secret (`WEBHOOK_SECRET`) | Per-tenant secrets deferred to v2; single tenant in v1 |
 | Output | GCP Bucket (JSONL format) | Flexible destination, industry standard for log storage |
 | Bad events | Push to DLQ Kafka topic, log, alert; pipeline continues | Don't block live pipeline on malformed events |
 | Idempotency | Kafka consumer group offsets | Prevents re-processing on consumer restart |
+| Job tracking | Async Redis (`SOC_CLAW_REDIS_URL`) | Batch jobs need O(1) status lookup; Kafka log unsuited for that. Same Redis instance also backs Guard rate-limits and the LLM cache layer. |
 | DLQ reprocessing | Automatic reprocessing from DLQ topic (max 3 retries) | Self-healing for transient failures |
 | Error retry | 3 retries with 30s delay for service unavailability | Handles service startup delays |
 | Agent down | Stop pipeline with error message | Requires manual intervention for agent failures |
@@ -844,11 +845,12 @@ success_criteria:
     - Pass real alerts to template
 
 4. **Update API routes** in `soc_claw/backend/routers/api.py`
-    - Remove `load_alerts()` import
-    - Add `get_alert()` from GCS reader
+    - Remove `load_alerts()` and `get_alert_by_id()` imports
+    - Use `download_alert(bucket, id)` from GCS reader for single-alert lookup
     - Add `/api/process-batch` endpoint (POST)
-    - Add `/api/process-all` endpoint (GET, SSE streaming)
+    - Add `/api/process-all` endpoint (GET, SSE streaming) — v1 caps at 1000 alerts; pagination deferred to v2
     - Update `/api/alerts` to fetch from GCS
+    - Update `/api/alerts/{alert_id}`, `/api/run/{alert_id}`, `/api/override` to fetch the alert from GCS
 
 5. **Update dashboard template** in `soc_claw/frontend/templates/index.html`
     - Replace "Run All 30" with two new buttons
@@ -903,13 +905,13 @@ success_criteria:
 ### Phase 4: Ingress Adapters
 
 14. **Build webhook endpoint** in `soc_claw/backend/routes/siem_webhook.py`
-    - HMAC-SHA256 verification with per-tenant secret
+    - HMAC-SHA256 verification with global `WEBHOOK_SECRET` env var (per-tenant deferred to v2)
     - Max-age timestamp check: reject if > 5 minutes old
-    - SIEM type detection from headers or payload
-    - Route to appropriate mapper
-    - Publish to Kafka topic (not Redis)
-    - Return `401` on invalid HMAC, `400` on malformed event
-    - Push to DLQ on normalization/validation failures
+    - SIEM type detection from `X-SIEM-Type` header or payload shape
+    - Route to appropriate mapper (Splunk / Sentinel / CrowdStrike)
+    - Publish to Kafka topic
+    - Return `401` on invalid HMAC, `400` on malformed event, `500` on Kafka publish failure
+    - Push to DLQ on JSON parse / normalization / schema-validation / publish failures
 
 15. **Build batch API endpoint** in `soc_claw/backend/routes/batch_api.py`
     - `POST /api/batch/upload` - Upload JSONL file
@@ -922,9 +924,10 @@ success_criteria:
 
 16. **Create job manager** in `soc_claw/connectors/job_manager.py`
     - Track batch job status (pending → processing → completed/failed)
-    - Store job metadata in Redis
+    - Store job metadata in Redis (`redis.asyncio` client passed in via constructor)
     - Update job progress
     - Store results location
+    - **Wiring:** server startup opens the async Redis client at `app.state.redis` (gated on `SOC_CLAW_REDIS_URL`); routes pull it from app state. Endpoints return 503 cleanly when Redis is unset/unreachable.
 
 ### Phase 5: Kafka Consumer & Pipeline
 
@@ -939,7 +942,7 @@ success_criteria:
 18. **Update pipeline** in `soc_claw/pipeline.py`
     - Remove `load_alerts()` function (no longer needed)
     - Remove `load_alerts_from_queue()` function (no longer needed)
-    - Remove `ALERT_SOURCE` feature flag (no longer needed)
+    - Retain `ALERT_SOURCE` feature flag — surfaces ingress source (kafka / webhook / jsonl) for diagnostics; no behavioural fork in pipeline today
     - Keep `run_pipeline()` function
     - Keep `execute_approved_action()` function
 
@@ -976,14 +979,12 @@ success_criteria:
 
 ### Phase 8: Monitoring & Testing
 
-23. **Add OpenTelemetry instrumentation**
-    - Kafka consumer lag metric
-    - Ingestion/processing rate counters
-    - Latency histograms
-    - DLQ rate counter
-    - GCP upload success/failure metrics
-    - Batch job metrics
-    - GCS poller metrics
+23. **Add OpenTelemetry instrumentation** — instruments live in `soc_claw/connectors/metrics.py`; helpers wired into kafka_producer / kafka_consumer / output_gcp / siem_webhook.
+    - Kafka publish/consume counters and publish-error counter
+    - Ingestion / processing / dropped / DLQ counters
+    - Processing latency + GCP upload latency histograms
+    - GCP upload success / failure counters
+    - **Note**: `metrics.py` initialises its own `MeterProvider` with a `ConsoleMetricExporter`; production should swap this for the same OTLP exporter `soc_claw.telemetry` uses for tracing, otherwise metrics only print to stderr.
 
 24. **Add structured logging**
     - Alert ingestion events
@@ -1035,7 +1036,7 @@ success_criteria:
     - GCS poller configuration
     - Service account key management
 
-30. **Update plan document**
+30. **Update plan document** *(done — see *Implementation status* below for v1 deltas vs the original plan)*
     - Reflect GCS API as primary source
     - Update architecture diagram
     - Document new API endpoints
@@ -1090,6 +1091,32 @@ success_criteria:
 - **Kafka setup**: 3 brokers, 3 partitions, replication factor 3
 - **GCP Bucket**: Created and configured with appropriate permissions
 - **Documentation**: Ops guide updated with Kafka management, DLQ reprocessing, webhook secret rotation, GCP Bucket management
+
+## Implementation status
+
+v1 ships behind branch `feature/SIEM_ingestion_kafka-queue`. Deltas vs the original plan:
+
+**Implemented as planned**
+- GCS reader + configurable poller (`SOC_CLAW_GCS_POLL_INTERVAL`, `SOC_CLAW_BATCH_SIZE`).
+- Splunk / Sentinel / CrowdStrike mappers behind the `SIEMMapper` ABC; `ground_truth` stripped during normalization.
+- Kafka producer / consumer with manual offset commit; consumer task pinned to a module-level reference so it isn't GC'd.
+- Kafka DLQ topic + automatic reprocessor (max 3 retries) with module-level task reference.
+- GCP Bucket output: `realtime/{year}/{month}/{day}/{hour}/alerts_*.jsonl` and `dlq/{year}/{month}/{day}/{hour}/dlq_*.jsonl`.
+- Webhook + batch ingress under `/api/siem/webhook` and `/api/batch/*`. Both routers registered in `server.py`.
+- Async Redis (`SOC_CLAW_REDIS_URL`) opened at startup for `JobManager`; endpoints 503 cleanly if absent.
+- OTel instruments in `soc_claw/connectors/metrics.py` wired into producer / consumer / webhook / GCP upload paths.
+
+**Deviations from the original plan**
+- **Webhook auth**: single global `WEBHOOK_SECRET`. Per-tenant secrets deferred to v2 (see *Deferred to v2*).
+- **`ALERT_SOURCE` flag retained** in `pipeline.py` for diagnostic visibility into ingress source. No behavioural fork.
+- **Metrics exporter**: `metrics.py` uses a `ConsoleMetricExporter`; production needs to be re-wired through `soc_claw.telemetry` to land in GCP Cloud Monitoring.
+- **`/api/process-all` cap**: hard-coded to 1000 alerts per call. Plan says "ALL"; pagination/streaming-from-GCS deferred to v2.
+- **Sidebar**: legacy "Run All 30" / `/api/run-all` benchmark view still wired in `index.html` alongside the new "Process Latest N" / "Process All" buttons. Removal deferred to a UI cleanup pass.
+
+**Carried over from original plan** (still v2)
+- Per-tenant webhook secrets via k8s `Secret`s with rotation procedure.
+- Automated DLQ re-processing UI; alert deduplication beyond Kafka-offset idempotency.
+- GCS poller graceful shutdown (current `stop_gcs_poller` cancels the task; finer-grained drain semantics deferred).
 
 ## Risks
 
@@ -1176,3 +1203,7 @@ success_criteria:
 - **SIEM-side rule authoring** → Out of scope for this plan; handled by customer SIEM team
 - **Batch API synchronous processing** → Asynchronous processing (job ID) is sufficient for v1
 - **GCS poller cancellation** → Basic start/stop sufficient for v1; graceful shutdown deferred to v2
+- **Per-tenant webhook secrets** → v1 uses a single global `WEBHOOK_SECRET`; per-tenant secret distribution + rotation procedure deferred
+- **`/api/process-all` pagination** → v1 caps at 1000 alerts per call; true "ALL" via paginated GCS reads deferred
+- **OTel metrics exporter** → v1 uses `ConsoleMetricExporter`; OTLP wiring through `soc_claw.telemetry` deferred
+- **UI cleanup of legacy benchmark view** → `/api/run-all` route + "Run All 30" sidebar entry to be removed alongside the new GCS buttons

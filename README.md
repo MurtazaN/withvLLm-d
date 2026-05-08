@@ -143,15 +143,16 @@ SoC-Claw/                            # repo root
     │   ├── harness.py               # Benchmark execution
     │   └── results/                 # Output CSVs (gitignored)
     ├── backend/                     # FastAPI backend
-    │   ├── server.py                # Main app entrypoint
+    │   ├── server.py                # Main app entrypoint (also opens app.state.redis on startup)
     │   ├── security.py              # Security & CSRF protection
     │   ├── auth.py                  # Session management
-    │   └── routers/                 # Organized API routes
-    │       ├── api.py               # Main API endpoints
-    │       ├── auth.py              # Authentication routes
-    │       ├── pages.py             # Frontend page rendering
-    │       ├── siem_webhook.py      # SIEM webhook endpoint
-    │       └── batch_api.py         # Batch upload endpoint
+    │   ├── routers/                 # Core dashboard / API routes
+    │   │   ├── api.py               # Main API endpoints
+    │   │   ├── auth.py              # Authentication routes
+    │   │   └── pages.py             # Frontend page rendering
+    │   └── routes/                  # Ingress-adapter routes
+    │       ├── siem_webhook.py      # SIEM webhook endpoint (HMAC-signed)
+    │       └── batch_api.py         # Batch JSONL upload endpoint
     └── frontend/
         ├── static/                  # Static assets (JS, images)
         ├── styles/                  # CSS stylesheets
@@ -201,7 +202,7 @@ docker compose up
 ```
 
 **That's it!** Docker Compose will automatically:
-- Start Redis for job tracking
+- Start Redis (used for batch-job tracking, the LLM result cache, and Guard rate-limit state — all from the same instance)
 - Start Zookeeper and Kafka for message streaming
 - Create Kafka topics (`soc-claw-alerts` and `soc-claw-alerts-dlq`)
 - Start the SOC-Claw application

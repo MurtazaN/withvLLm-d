@@ -4,12 +4,19 @@ import asyncio
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from google.cloud import storage
 from google.oauth2 import service_account
+
+from soc_claw.connectors.metrics import (
+    record_gcp_upload,
+    record_gcp_upload_error,
+    record_gcp_upload_latency,
+)
 
 logger = logging.getLogger("soc_claw.connectors.output_gcp")
 
@@ -75,7 +82,7 @@ async def upload_result(result: dict) -> bool:
 
         # Generate file path based on timestamp
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-        path = f"realtime/{dt.year:04d}/{dt.month:02d}/{dt.day:02d}/alerts_{dt.strftime('%Y%m%d%H%M%S')}.jsonl"
+        path = f"realtime/{dt.year:04d}/{dt.month:02d}/{dt.day:02d}/{dt.hour:02d}/alerts_{dt.strftime('%Y%m%d%H%M%S')}.jsonl"
 
         # Prepare content
         if OUTPUT_FORMAT == "jsonl":
@@ -90,9 +97,12 @@ async def upload_result(result: dict) -> bool:
                 blob = bucket.blob(path)
 
                 # Upload content
+                started_at = time.perf_counter()
                 await asyncio.to_thread(
                     blob.upload_from_string, content, content_type="application/jsonl"
                 )
+                record_gcp_upload_latency(time.perf_counter() - started_at)
+                record_gcp_upload(BUCKET_NAME)
 
                 logger.info(
                     f"Uploaded result for alert {alert_id} to GCP: {path}",
@@ -108,6 +118,7 @@ async def upload_result(result: dict) -> bool:
                     )
                     await asyncio.sleep(RETRY_DELAY)
                 else:
+                    record_gcp_upload_error(BUCKET_NAME, type(e).__name__)
                     logger.error(
                         f"Failed to upload result for alert {alert_id} after "
                         f"{RETRY_COUNT} attempts: {e}"
@@ -115,6 +126,7 @@ async def upload_result(result: dict) -> bool:
                     return False
 
     except Exception as e:
+        record_gcp_upload_error(BUCKET_NAME, type(e).__name__)
         logger.error(f"Failed to upload result for alert {alert_id}: {e}")
         return False
 
@@ -171,7 +183,7 @@ async def upload_dlq_entry(dlq_entry: dict) -> bool:
             dt = datetime.now(timezone.utc)
 
         # Generate file path
-        path = f"dlq/{dt.year:02d}/{dt.month:02d}/{dt.hour:02d}/dlq_{dt.strftime('%Y%m%d%H%M%S')}.jsonl"
+        path = f"dlq/{dt.year:04d}/{dt.month:02d}/{dt.day:02d}/{dt.hour:02d}/dlq_{dt.strftime('%Y%m%d%H%M%S')}.jsonl"
 
         # Prepare content
         content = json.dumps(dlq_entry) + "\n"

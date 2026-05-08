@@ -24,6 +24,7 @@ RETRY_INTERVAL = int(os.environ.get("ERROR_DLQ_RETRY_INTERVAL", "300"))  # 5 min
 
 # Global consumer instance
 _consumer: Optional[AIOKafkaConsumer] = None
+_reprocessor_task: Optional[asyncio.Task] = None
 _running = False
 
 
@@ -166,24 +167,32 @@ async def reprocess_dlq():
 
 async def start_dlq_reprocessor():
     """Start the DLQ reprocessor in background."""
-    global _running
+    global _reprocessor_task
 
-    if _running:
+    if _reprocessor_task and not _reprocessor_task.done():
         logger.warning("DLQ reprocessor already running")
         return
 
-    # Create reprocessor task
-    task = asyncio.create_task(reprocess_dlq())
+    # Hold a strong reference at module level so the task isn't GC'd
+    # mid-flight (asyncio only weak-refs background tasks).
+    _reprocessor_task = asyncio.create_task(reprocess_dlq())
     logger.info("DLQ reprocessor started in background")
 
 
 async def stop_dlq_reprocessor():
     """Stop the DLQ reprocessor."""
-    global _running
+    global _running, _reprocessor_task
 
-    if not _running:
-        logger.warning("Dlq reprocessor not running")
+    if not _reprocessor_task or _reprocessor_task.done():
+        logger.warning("DLQ reprocessor not running")
         return
 
     _running = False
-    logger.info("Stopping DLQ reprocessor...")
+    _reprocessor_task.cancel()
+    try:
+        await _reprocessor_task
+    except asyncio.CancelledError:
+        pass
+    _reprocessor_task = None
+    await shutdown_dlq_consumer()
+    logger.info("DLQ reprocessor stopped")

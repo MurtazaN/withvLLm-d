@@ -21,6 +21,7 @@ from soc_claw.connectors.siem_sentinel import SentinelMapper
 from soc_claw.connectors.siem_crowdstrike import CrowdStrikeMapper
 from soc_claw.connectors.kafka_producer import publish_alert
 from soc_claw.connectors.dlq_kafka import send_to_dlq
+from soc_claw.connectors.metrics import record_alert_ingested, record_alert_dlq
 from soc_claw.schemas import Alert
 
 logger = logging.getLogger("soc_claw.connectors.webhook")
@@ -149,6 +150,7 @@ async def siem_webhook(
             str(e),
             "webhook",
         )
+        record_alert_dlq(ErrorType.INVALID_JSON.value)
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
     # Detect SIEM type
@@ -165,6 +167,7 @@ async def siem_webhook(
             f"Unknown SIEM type: {siem_type}",
             siem_type,
         )
+        record_alert_dlq(ErrorType.NORMALIZATION_FAILURE.value)
         raise HTTPException(status_code=400, detail=f"Unknown SIEM type: {siem_type}")
 
     source = mapper.extract_source(raw_event)
@@ -175,6 +178,7 @@ async def siem_webhook(
     except NormalizationError as e:
         logger.error(f"Normalization failed: {e}")
         await send_to_dlq(raw_event, ErrorType.NORMALIZATION_FAILURE, str(e), source)
+        record_alert_dlq(ErrorType.NORMALIZATION_FAILURE.value)
         raise HTTPException(status_code=400, detail="Normalization failed")
 
     # Validate schema
@@ -183,6 +187,7 @@ async def siem_webhook(
     except Exception as e:
         logger.error(f"Schema validation failed: {e}")
         await send_to_dlq(alert, ErrorType.SCHEMA_VALIDATION, str(e), source)
+        record_alert_dlq(ErrorType.SCHEMA_VALIDATION.value)
         raise HTTPException(status_code=400, detail="Schema validation failed")
 
     # Publish to Kafka
@@ -193,8 +198,10 @@ async def siem_webhook(
     except Exception as e:
         logger.error(f"Failed to publish alert: {e}")
         await send_to_dlq(alert, ErrorType.SERVICE_UNAVAILABLE, str(e), source)
+        record_alert_dlq(ErrorType.SERVICE_UNAVAILABLE.value)
         raise HTTPException(status_code=500, detail="Failed to publish to Kafka")
 
+    record_alert_ingested(source, alert["id"])
     logger.info(
         f"Alert ingested via webhook: {alert['id']} from {source}",
         extra={"alert_id": alert["id"], "source": source},
