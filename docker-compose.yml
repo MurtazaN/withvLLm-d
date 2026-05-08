@@ -29,6 +29,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./soc_claw/benchmark/results:/app/soc_claw/benchmark/results
+      - ./secrets/bluelantern-gcs.json:/app/secrets/bluelantern-gcs.json:ro
     restart: unless-stopped
 
   benchmark:
