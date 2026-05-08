@@ -31,3 +31,6 @@ data/
 # Opencode and graphify
 AGENTS.md
 graphify-out/
+
+# GCP 
+.secrets/

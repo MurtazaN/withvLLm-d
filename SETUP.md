@@ -100,7 +100,7 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
 WEBHOOK_SECRET=<generate-with: python -c "import secrets; print(secrets.token_hex(32))">
 ```
 
-### Step 2: Create GCP Resources
+### Step 2: Create GCP Resources if not already done
 
 ```bash
 # Create GCP bucket
