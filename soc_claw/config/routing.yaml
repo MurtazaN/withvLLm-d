@@ -18,7 +18,7 @@ providers:
   hugging-face:
     base_url: https://api-inference.huggingface.co/models/fdtn-ai/Foundation-Sec-8B-Reasoning
     api_key_env: HUGGING_FACE_TOKEN
-  vertex-ai:
+  vertex-ai: #https://docs.cloud.google.com/vertex-ai/generative-ai/docs/start/openai OR https://console.cloud.google.com/agent-platform/publishers/meta/model-garden/llama-3.3-70b-instruct-maas?project=bluelantern-495306
     base_url: https://us-central1-aiplatform.googleapis.com/v1beta1/projects/bluelantern-495306/locations/us-central1/endpoints/openapi
     api_key_env: VERTEX_AI_API_KEY
   nvidia-nim:
@@ -30,18 +30,18 @@ providers:
 # Successfull execution with every provider above.
 agents:
   triage:
-    provider: ollama-from-container
-    model: mistral:7b-instruct
+    provider: vertex-ai
+    model: meta/llama-3.3-70b-instruct-maas
   verifier:
-    provider: ollama-from-container
-    model: mistral:7b-instruct 
+    provider: vertex-ai
+    model: meta/llama-3.3-70b-instruct-maas
   response:
-    provider: ollama-from-container
-    model: mistral:7b-instruct
+    # provider: ollama-from-container
+    # model: mistral:7b-instruct
     # provider: nvidia-nim
     # model: mistralai/devstral-2-123b-instruct-2512
-    # provider: vertex-ai
-    # model: meta/llama-3.3-70b-instruct-maas
+    provider: vertex-ai
+    model: meta/llama-3.3-70b-instruct-maas 
     # provider: openrouter
     # model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
     # provider: hugging-face
