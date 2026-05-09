@@ -29,7 +29,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./soc_claw/benchmark/results:/app/soc_claw/benchmark/results
-      - ./secrets/bluelantern-gcs.json:/app/secrets/bluelantern-gcs.json:ro
+      - ./.secrets/bluelantern-gcs.json:/app/.secrets/bluelantern-gcs.json:ro
     restart: unless-stopped
 
   benchmark:
@@ -48,6 +48,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./soc_claw/benchmark/results:/app/soc_claw/benchmark/results
+      - ./.secrets/bluelantern-gcs.json:/app/.secrets/bluelantern-gcs.json:ro
     entrypoint: ["python", "-m", "soc_claw.benchmark.harness"]
     command: ["30"]
     restart: "no"
@@ -80,12 +81,19 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # Two listeners: INTERNAL for compose-network clients (kafka-init, app),
+      # EXTERNAL for host clients reaching the published port. Required because
+      # the advertised address is what the broker hands back during the
+      # post-handshake redirect, and it has to resolve from the client's POV.
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "kafka:29092"]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -97,7 +105,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       KAFKA_TOPIC_ALERTS: soc-claw-alerts
       KAFKA_TOPIC_DLQ: soc-claw-alerts-dlq
       KAFKA_PARTITIONS: 3
@@ -105,14 +113,14 @@ services:
     command: |
       bash -c "
       echo 'Waiting for Kafka to be ready...'
-      until kafka-topics --bootstrap-server kafka:9092 --list > /dev/null 2>&1; do
+      until kafka-topics --bootstrap-server kafka:29092 --list > /dev/null 2>&1; do
         echo 'Kafka not ready yet, waiting...'
         sleep 5
       done
       echo 'Kafka is ready! Creating topics...'
-      kafka-topics --create --bootstrap-server kafka:9092 --topic soc-claw-alerts --partitions 3 --replication-factor 1 --if-not-exists
-      kafka-topics --create --bootstrap-server kafka:9092 --topic soc-claw-alerts-dlq --partitions 1 --replication-factor 1 --if-not-exists
+      kafka-topics --create --bootstrap-server kafka:29092 --topic soc-claw-alerts --partitions 3 --replication-factor 1 --if-not-exists
+      kafka-topics --create --bootstrap-server kafka:29092 --topic soc-claw-alerts-dlq --partitions 1 --replication-factor 1 --if-not-exists
       echo 'Topics created successfully!'
-      kafka-topics --bootstrap-server kafka:9092 --list
+      kafka-topics --bootstrap-server kafka:29092 --list
       "
     restart: "no"
