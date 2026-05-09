@@ -22,7 +22,7 @@ CONFIG_PATH = Path(__file__).parent.parent / "config" / "routing.yaml"
 # 60s is generous for a single chat-completion round trip — even Ollama
 # cold-starts on a 7B model finish under that — while failing fast when
 # something is genuinely wedged. Override per-deploy via SOC_CLAW_LLM_TIMEOUT.
-LLM_TIMEOUT_SECONDS = float(os.environ.get("SOC_CLAW_LLM_TIMEOUT", "60"))
+LLM_TIMEOUT_SECONDS = float(os.environ.get("SOC_CLAW_LLM_TIMEOUT", "180"))
 
 
 @lru_cache(maxsize=1)

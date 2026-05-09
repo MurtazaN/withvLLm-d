@@ -30,18 +30,18 @@ providers:
 # Successfull execution with every provider above.
 agents:
   triage:
-    provider: vertex-ai
-    model: meta/llama-3.3-70b-instruct-maas
+    provider: ollama-from-container
+    model: gemma4:e4b
   verifier:
-    provider: vertex-ai
-    model: meta/llama-3.3-70b-instruct-maas
+    provider: ollama-from-container
+    model: mistral:7b-instruct
   response:
-    # provider: ollama-from-container
-    # model: mistral:7b-instruct
+    provider: ollama-from-container
+    model: gemma4:e4b
     # provider: nvidia-nim
     # model: mistralai/devstral-2-123b-instruct-2512
-    provider: vertex-ai
-    model: meta/llama-3.3-70b-instruct-maas 
+    # provider: vertex-ai
+    # model: meta/llama-3.3-70b-instruct-maas 
     # provider: openrouter
     # model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
     # provider: hugging-face
