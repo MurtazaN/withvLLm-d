@@ -5,7 +5,7 @@
 
 ## Goal
 
-Replace the [data/threat_intel_data.json](../data/threat_intel_data.json) loader inside [soc_claw/tools/ip_reputation.py](../soc_claw/tools/ip_reputation.py) with VirusTotal v3 API calls, backed by the cache from [plan-01-cache.md](plan-01-cache.md).
+Replace the [data/threat_intel_data.json](../data/threat_intel_data.json) loader inside [src/blue_lantern/tools/ip_reputation.py](../src/blue_lantern/tools/ip_reputation.py) with VirusTotal v3 API calls, backed by the cache from [plan-01-cache.md](plan-01-cache.md).
 
 ## Scope
 
@@ -27,10 +27,10 @@ Replace the [data/threat_intel_data.json](../data/threat_intel_data.json) loader
 
 ## Steps (skeleton — flesh out at implementation)
 
-1. Build `soc_claw/connectors/virustotal.py` — async `httpx` client, retry/backoff, rate-limit aware.
+1. Build `src/blue_lantern/connectors/virustotal.py` — async `httpx` client, retry/backoff, rate-limit aware.
 2. Map VT response → existing `ip_reputation` return shape (keep `threat_score`, `tags`, `campaigns`, `first_seen`, `last_seen`, `verdict`).
 3. Wrap with `cache.get_or_compute(f"ip_rep:{normalize(ip)}", lookup_fn, 86_400)`.
-4. Replace JSON load in `soc_claw/tools/ip_reputation.py` with the connector + cache call. Delete the `_load_threat_intel` helper.
+4. Replace JSON load in `src/blue_lantern/tools/ip_reputation.py` with the connector + cache call. Delete the `_load_threat_intel` helper.
 5. Add `VIRUSTOTAL_API_KEY` to `.env.example` + [config-reference.md](config-reference.md).
 6. Tests with VCR cassettes (record/replay; CI does not hit live API).
 

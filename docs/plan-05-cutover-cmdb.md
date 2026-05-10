@@ -5,7 +5,7 @@
 
 ## Goal
 
-Replace the [data/asset_inventory_data.json](../data/asset_inventory_data.json) loader inside [soc_claw/tools/asset_lookup.py](../soc_claw/tools/asset_lookup.py) with ServiceNow CMDB Table API calls, backed by the cache from [plan-01-cache.md](plan-01-cache.md).
+Replace the [data/asset_inventory_data.json](../data/asset_inventory_data.json) loader inside [src/blue_lantern/tools/asset_lookup.py](../src/blue_lantern/tools/asset_lookup.py) with ServiceNow CMDB Table API calls, backed by the cache from [plan-01-cache.md](plan-01-cache.md).
 
 ## Scope
 
@@ -27,10 +27,10 @@ Replace the [data/asset_inventory_data.json](../data/asset_inventory_data.json) 
 
 ## Steps (skeleton — flesh out at implementation)
 
-1. Build `soc_claw/connectors/servicenow.py` — async `httpx` client, OAuth2 token mgmt with auto-refresh.
+1. Build `src/blue_lantern/connectors/servicenow.py` — async `httpx` client, OAuth2 token mgmt with auto-refresh.
 2. Map ServiceNow CI → existing `Asset` schema. Field mapping kept in a single module so it's easy to override per-customer.
 3. Wrap with `cache.get_or_compute(f"asset:{hostname.upper()}", lookup_fn, 3_600)`.
-4. Replace JSON load in `soc_claw/tools/asset_lookup.py` with the connector + cache call. Delete the `_load_asset_inventory` helper.
+4. Replace JSON load in `src/blue_lantern/tools/asset_lookup.py` with the connector + cache call. Delete the `_load_asset_inventory` helper.
 5. Add `SERVICENOW_*` env vars to `.env.example` + [config-reference.md](config-reference.md).
 6. Tests with VCR cassettes (record/replay).
 

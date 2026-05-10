@@ -1,7 +1,7 @@
-from soc_claw.tools.asset_lookup import asset_lookup
-from soc_claw.tools.ip_reputation import ip_reputation
-from soc_claw.tools.mitre_lookup import mitre_lookup
-from soc_claw.tools.response_tools import block_ioc, create_ticket, escalate, isolate_host
+from blue_lantern.tools.asset_lookup import asset_lookup
+from blue_lantern.tools.ip_reputation import ip_reputation
+from blue_lantern.tools.mitre_lookup import mitre_lookup
+from blue_lantern.tools.response_tools import block_ioc, create_ticket, escalate, isolate_host
 
 
 def test_ip_reputation_known_malicious():

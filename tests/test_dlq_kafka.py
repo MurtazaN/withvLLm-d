@@ -5,12 +5,12 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
-from soc_claw.connectors.dlq_kafka import (
+from blue_lantern.connectors.dlq_kafka import (
     send_to_dlq,
     get_dlq_producer,
     shutdown_dlq_producer,
 )
-from soc_claw.connectors.base import ErrorType
+from blue_lantern.connectors.base import ErrorType
 
 
 @pytest.mark.asyncio
@@ -28,7 +28,7 @@ class TestDLQKafka:
 
     async def test_get_dlq_producer(self, mock_producer):
         """Test getting DLQ producer instance."""
-        with patch("soc_claw.connectors.dlq_kafka.AIOKafkaProducer", return_value=mock_producer):
+        with patch("blue_lantern.connectors.dlq_kafka.AIOKafkaProducer", return_value=mock_producer):
             producer = get_dlq_producer()
             assert producer is not None
             await producer.start.assert_called_once()
@@ -44,7 +44,7 @@ class TestDLQKafka:
         error_message = "Missing required field"
         source = "splunk"
 
-        with patch("soc_claw.connectors.dlq_kafka.get_dlq_producer", return_value=mock_producer):
+        with patch("blue_lantern.connectors.dlq_kafka.get_dlq_producer", return_value=mock_producer):
             await send_to_dlq(raw_event, error_type, error_message, source)
             mock_producer.send_and_wait.assert_called_once()
 
@@ -70,7 +70,7 @@ class TestDLQKafka:
         error_message = "Kafka unavailable"
         source = "splunk"
 
-        with patch("soc_claw.connectors.dlq_kafka.get_dlq_producer", return_value=mock_producer):
+        with patch("blue_lantern.connectors.dlq_kafka.get_dlq_producer", return_value=mock_producer):
             await send_to_dlq(raw_event, error_type, error_message, source, retry_count=2)
             mock_producer.send_and_wait.assert_called_once()
 
@@ -90,12 +90,12 @@ class TestDLQKafka:
 
         mock_producer.send_and_wait.side_effect = Exception("Kafka error")
 
-        with patch("soc_claw.connectors.dlq_kafka.get_dlq_producer", return_value=mock_producer):
+        with patch("blue_lantern.connectors.dlq_kafka.get_dlq_producer", return_value=mock_producer):
             # Should not raise exception, just log error
             await send_to_dlq(raw_event, error_type, error_message, source)
 
     async def test_shutdown_dlq_producer(self, mock_producer):
         """Test shutting down DLQ producer."""
-        with patch("soc_claw.connectors.dlq_kafka._producer", mock_producer):
+        with patch("blue_lantern.connectors.dlq_kafka._producer", mock_producer):
             await shutdown_dlq_producer()
             mock_producer.stop.assert_called_once()

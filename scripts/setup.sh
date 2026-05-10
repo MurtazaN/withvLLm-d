@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# SOC-Claw — one-command bootstrap.
+# Blue Lantern — one-command bootstrap.
 #
 #   1. Bootstraps the host (uv, Python 3.11, venv, vLLM, .env).
-#   2. Builds the soc-claw container image.
+#   2. Builds the blue-lantern container image.
 #   3. Brings up docker-compose (app on :7860).
 #
 # vLLM runs on the host, not in a container. Start it in a separate
@@ -29,7 +29,7 @@ fi
 echo "[1/3] Host bootstrap (idempotent)..."
 bash "${SCRIPT_DIR}/install-host.sh"
 
-echo "[2/3] Building soc-claw image..."
+echo "[2/3] Building blue-lantern image..."
 docker compose -f "${REPO_ROOT}/docker-compose.yml" build
 
 echo "[3/3] Starting app..."

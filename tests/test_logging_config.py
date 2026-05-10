@@ -1,4 +1,4 @@
-"""Sanity tests for ``soc_claw.logging_config``.
+"""Sanity tests for ``blue_lantern.observability.logging_config``.
 
 Verify that ``setup_logging()`` produces parseable JSON lines and that
 ``extra={}`` fields land as top-level keys, since aggregator queries
@@ -8,12 +8,12 @@ depend on that contract.
 import json
 import logging
 
-from soc_claw.logging_config import setup_logging
+from blue_lantern.observability.logging_config import setup_logging
 
 
 def test_emits_json_lines(capsys):
     setup_logging()
-    logging.getLogger("soc-claw").info(
+    logging.getLogger("blue-lantern").info(
         "routing_decision",
         extra={"event": "routing_decision", "agent": "triage", "route": "local"},
     )
@@ -29,17 +29,17 @@ def test_emits_json_lines(capsys):
 def test_trace_context_filter_no_active_span(capsys):
     """Without an active span, log line should still parse cleanly."""
     setup_logging()
-    logging.getLogger("soc-claw").info("plain")
+    logging.getLogger("blue-lantern").info("plain")
     parsed = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
     assert "trace_id" not in parsed
 
 
 def test_log_file_env_var(tmp_path, monkeypatch):
-    """SOC_CLAW_LOG_FILE redirects JSON output to a file in append mode."""
-    log_path = tmp_path / "soc-claw.jsonl"
-    monkeypatch.setenv("SOC_CLAW_LOG_FILE", str(log_path))
+    """BLUE_LANTERN_LOG_FILE redirects JSON output to a file in append mode."""
+    log_path = tmp_path / "blue-lantern.jsonl"
+    monkeypatch.setenv("BLUE_LANTERN_LOG_FILE", str(log_path))
     setup_logging()
-    logging.getLogger("soc-claw").info(
+    logging.getLogger("blue-lantern").info(
         "to_file",
         extra={"event": "to_file", "agent": "triage"},
     )
@@ -56,10 +56,10 @@ def test_log_file_env_var(tmp_path, monkeypatch):
 
 
 def test_log_level_env_var(monkeypatch, capsys):
-    """SOC_CLAW_LOG_LEVEL=WARNING suppresses INFO records."""
-    monkeypatch.setenv("SOC_CLAW_LOG_LEVEL", "WARNING")
+    """BLUE_LANTERN_LOG_LEVEL=WARNING suppresses INFO records."""
+    monkeypatch.setenv("BLUE_LANTERN_LOG_LEVEL", "WARNING")
     setup_logging()
-    logger = logging.getLogger("soc-claw")
+    logger = logging.getLogger("blue-lantern")
     logger.info("should_be_suppressed")
     logger.warning("should_appear")
     err_lines = [

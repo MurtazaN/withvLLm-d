@@ -1,6 +1,6 @@
-# SOC-Claw Setup Guide
+# Blue Lantern Setup Guide
 
-This guide will help you get SOC-Claw running in different environments.
+This guide will help you get Blue Lantern running in different environments.
 
 ## Quick Start (Local Development)
 
@@ -15,7 +15,7 @@ This guide will help you get SOC-Claw running in different environments.
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd SoC-Claw
+cd Blue Lantern
 
 # Copy environment file
 cp .env.example .env
@@ -37,8 +37,8 @@ docker compose up -d
 This will:
 - Start Redis for job tracking
 - Start Zookeeper and Kafka for message streaming
-- Automatically create Kafka topics (`soc-claw-alerts` and `soc-claw-alerts-dlq`)
-- Start the SOC-Claw application
+- Automatically create Kafka topics (`blue-lantern-alerts` and `blue-lantern-alerts-dlq`)
+- Start the Blue Lantern application
 
 ### Step 3: Access the Application
 
@@ -75,11 +75,11 @@ Create a production `.env` file with the following values:
 ```bash
 # --- Authentication ---
 # Generate a secure secret key
-SOC_CLAW_SECRET_KEY=<generate-with: python -c "import secrets; print(secrets.token_hex(32))">
+BLUE_LANTERN_SECRET_KEY=<generate-with: python -c "import secrets; print(secrets.token_hex(32))">
 
 # Create analyst accounts
-SOC_CLAW_USERS=alice:$2b$12$<hash>,bob:$2b$12$<hash>
-# Generate hashes with: python -m soc_claw.backend.auth <password>
+BLUE_LANTERN_USERS=alice:$2b$12$<hash>,bob:$2b$12$<hash>
+# Generate hashes with: python -m blue_lantern.backend.auth <password>
 
 # --- Kafka ---
 # Your Kafka broker addresses
@@ -90,7 +90,7 @@ KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
 GCP_PROJECT_ID=your-project-id
 
 # Your GCP bucket name (create this first)
-GCP_BUCKET_NAME=soc-claw-results
+GCP_BUCKET_NAME=blue-lantern-results
 
 # Service account key file path
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
@@ -104,19 +104,19 @@ WEBHOOK_SECRET=<generate-with: python -c "import secrets; print(secrets.token_he
 
 ```bash
 # Create GCP bucket
-gsutil mb -p your-project-id gs://soc-claw-results
+gsutil mb -p your-project-id gs://blue-lantern-results
 
 # Create service account
-gcloud iam service-accounts create soc-claw-sa \
-    --display-name "SOC-Claw Service Account"
+gcloud iam service-accounts create blue-lantern-sa \
+    --display-name "Blue Lantern Service Account"
 
 # Grant storage permissions
-gsutil iam ch serviceAccount:soc-claw-sa@your-project-id.iam.gserviceaccount.com:objectAdmin \
-    gs://soc-claw-results
+gsutil iam ch serviceAccount:blue-lantern-sa@your-project-id.iam.gserviceaccount.com:objectAdmin \
+    gs://blue-lantern-results
 
 # Create service account key
 gcloud iam service-accounts keys create service-account-key.json \
-    --iam-account soc-claw-sa@your-project-id.iam.gserviceaccount.com
+    --iam-account blue-lantern-sa@your-project-id.iam.gserviceaccount.com
 ```
 
 ### Step 2.5: Service Account Key Setup (Detailed Guide)
@@ -127,7 +127,7 @@ gcloud iam service-accounts keys create service-account-key.json \
 
 2. **Create service account** (or select existing one):
    - Click "Create Service Account"
-   - Name: `soc-claw-gcs-reader`
+   - Name: `blue-lantern-gcs-reader`
    - Description: "Reads SIEM logs from GCS bucket"
    - Click "Create and Continue"
 
@@ -139,7 +139,7 @@ gcloud iam service-accounts keys create service-account-key.json \
    - Click on the service account you just created
    - Go to "Permissions" tab
    - Click "Grant Access"
-   - Add principal: `soc-claw-gcs-reader@your-project-id.iam.gserviceaccount.com`
+   - Add principal: `blue-lantern-gcs-reader@your-project-id.iam.gserviceaccount.com`
    - Select role: `Storage Object Viewer` (for reading logs)
    - If writing results to same/sibling bucket, also add: `Storage Object Creator`
    - Click "Save"
@@ -173,7 +173,7 @@ gcloud iam service-accounts keys create service-account-key.json \
 **For Kubernetes deployments:**
 ```bash
 # Create secret from key file
-kubectl create secret generic soc-claw-gcs-credentials \
+kubectl create secret generic blue-lantern-gcs-credentials \
     --from-file=credentials.json=/path/to/service-account-key.json
 
 # Mount secret in pod
@@ -187,14 +187,14 @@ kubectl create secret generic soc-claw-gcs-credentials \
 #   volumes:
 #     - name: gcs-credentials
 #       secret:
-#         secretName: soc-claw-gcs-credentials
+#         secretName: blue-lantern-gcs-credentials
 ```
 
 ### Step 3: Configure SIEM Webhook
 
-Configure your SIEM to send alerts to the SOC-Claw webhook:
+Configure your SIEM to send alerts to the Blue Lantern webhook:
 
-**Webhook URL**: `https://your-soc-claw-domain/api/siem/webhook`
+**Webhook URL**: `https://your-blue-lantern-domain/api/siem/webhook`
 
 **Headers**:
 - `X-Signature`: HMAC-SHA256 signature of `timestamp.body`
@@ -232,12 +232,12 @@ docker compose logs -f app
 **Using Kubernetes**:
 ```bash
 # Create secrets
-kubectl create secret generic soc-claw-secrets \
+kubectl create secret generic blue-lantern-secrets \
     --from-literal=secret-key=<your-secret-key> \
     --from-literal=webhook-secret=<your-webhook-secret>
 
 # Create configmap
-kubectl create configmap soc-claw-config \
+kubectl create configmap blue-lantern-config \
     --from-file=.env
 
 # Deploy
@@ -289,7 +289,7 @@ curl http://localhost:7860/api/batch/health
 docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list
 
 # Check topic details
-docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --describe --topic soc-claw-alerts
+docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --describe --topic blue-lantern-alerts
 ```
 
 ### Test Webhook

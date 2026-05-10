@@ -1,11 +1,11 @@
-# SOC-Claw: Multi-Agent Incident Response Coordinator
+# Blue Lantern: Multi-Agent Incident Response Coordinator
 (Potential name BlueLantern)
 
-SOC analysts see 4,000 alerts per day. 95% are noise. Missing the 5% that matter costs $4.45M per breach. SOC-Claw solves this with a three-agent pipeline that triages, self-corrects, and plans response actions — with the human always in the loop.
+SOC analysts see 4,000 alerts per day. 95% are noise. Missing the 5% that matter costs $4.45M per breach. Blue Lantern solves this with a three-agent pipeline that triages, self-corrects, and plans response actions — with the human always in the loop.
 
 ## The Problem
 
-Security Operations Centers are drowning in alerts. Manual triage is slow, error-prone, and leads to analyst burnout. Existing automation either auto-executes (dangerous) or just recommends (no verification). SOC-Claw does both: AI triages and verifies its own decisions, then the human approves before anything fires.
+Security Operations Centers are drowning in alerts. Manual triage is slow, error-prone, and leads to analyst burnout. Existing automation either auto-executes (dangerous) or just recommends (no verification). Blue Lantern does both: AI triages and verifies its own decisions, then the human approves before anything fires.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ Raw Alert → Triage Agent  → Verifier Agent (QA) → Response Agent (plan)
 
 ## SIEM Alert Ingress
 
-SOC-Claw now supports real-time alert ingestion from production SIEM platforms:
+Blue Lantern now supports real-time alert ingestion from production SIEM platforms:
 
 **Primary Source:**
 - **GCS Bucket**: SIEM logs stored in GCS, accessed via GCS API
@@ -75,13 +75,13 @@ SOC-Claw now supports real-time alert ingestion from production SIEM platforms:
 
 For detailed configuration and deployment instructions, see [SETUP.md](SETUP.md).
 
-![Dashboard](assests/dashboard.png)
+![Dashboard](assets/dashboard.png)
 *Dashboard: 30 synthetic SIEM alerts with severity badges, alert feed table, and "Run All 30" benchmark button.*
 
-![Alert Analysis](assests/soc-claw-ui.png)
+![Alert Analysis](assets/blue-lantern-ui.png)
 *Alert analysis: Triage & Verification (left), Technical Context with IP reputation, asset intelligence, and MITRE ATT&CK mapping (center), Response Plan with per-step approve/reject actions (right).*
 
-![30 Alert Benchmark](assests/30_alerts.png)
+![30 Alert Benchmark](assets/30_alerts.png)
 *Benchmark — Run All 30: 30 alerts processed in 254.7s. Triage accuracy 76.7%, verified accuracy 63.3%. Per-alert results with ground truth, triage, verified severity, match status, and latency.*
 
 ---
@@ -89,74 +89,43 @@ For detailed configuration and deployment instructions, see [SETUP.md](SETUP.md)
 ## Project Structure
 
 ```text
-SoC-Claw/                            # repo root
-├── pyproject.toml                   # package config + pinned deps
-├── uv.lock                          # exact-version lockfile (regenerate with `uv lock`)
-├── Dockerfile                       # uv-based build, non-root runtime
-├── docker-compose.yml               # app + benchmark + Kafka + Redis services
-├── .env.example                     # Environment variables template
-├── SETUP.md                         # Detailed setup and deployment guide
-├── scripts/                         # host bootstrap, vLLM launcher
-├── README.md
-└── soc_claw/                        # the Python package
-    ├── __init__.py
-    ├── pipeline.py                  # Orchestrator: Triage → Verifier → Response
-    ├── utils.py                     # Shared utility functions
-    ├── audit.py                     # Audit logging
-    ├── routing.py                   # Routing logic
-    ├── schemas.py                   # Pydantic schema validation
-    ├── telemetry.py                 # OpenTelemetry tracing
-    ├── logging_config.py            # JSON logging setup
-    ├── llm/                         # LLM infrastructure
-    │   ├── client.py                # Provider-agnostic client
-    │   ├── caller.py                # LLM execution logic
-    │   └── json_extract.py          # Structured output extraction
-    ├── agents/
-    │   ├── triage_agent.py          # HAS tools: enrichment + severity scoring
-    │   ├── verifier_agent.py        # NO tools: QA check
-    │   └── response_agent.py        # NO tools: action planning
-    ├── tools/
-    │   ├── base.py                  # Base tool definitions
-    │   ├── registry.py              # Tool registration
-    │   ├── ip_reputation.py         # IP threat intel lookup
-    │   ├── mitre_lookup.py          # MITRE ATT&CK technique mapper
-    │   ├── asset_lookup.py          # Asset inventory/CMDB lookup
-    │   └── response_tools.py        # EDR, firewall, ticketing simulations
-    ├── connectors/                  # SIEM alert ingress connectors
-    │   ├── base.py                  # Base connector interfaces
-    │   ├── siem_splunk.py           # Splunk mapper
-    │   ├── siem_sentinel.py         # Microsoft Sentinel mapper
-    │   ├── siem_crowdstrike.py      # CrowdStrike mapper
-    │   ├── kafka_producer.py        # Kafka producer for alerts
-    │   ├── kafka_consumer.py        # Kafka consumer for pipeline
-    │   ├── dlq_kafka.py             # Kafka-based DLQ handler
-    │   ├── dlq_reprocessor.py       # Automatic DLQ reprocessing
-    │   ├── output_gcp.py            # GCP Bucket output
-    │   ├── gcs_reader.py            # GCS bucket reader (list/download)
-    │   ├── gcs_poller.py            # Background GCS poller (configurable)
-    │   ├── job_manager.py           # Batch job tracking
-    │   └── metrics.py               # OpenTelemetry metrics
-    ├── data/                        # alerts.json, threat_intel.json, asset_inventory.json, mitre_techniques.json
-    ├── config/
-    │   └── routing.yaml             # Model routing configurations
-    ├── benchmark/
-    │   ├── harness.py               # Benchmark execution
-    │   └── results/                 # Output CSVs (gitignored)
-    ├── backend/                     # FastAPI backend
-    │   ├── server.py                # Main app entrypoint (also opens app.state.redis on startup)
-    │   ├── security.py              # Security & CSRF protection
-    │   ├── auth.py                  # Session management
-    │   ├── routers/                 # Core dashboard / API routes
-    │   │   ├── api.py               # Main API endpoints
-    │   │   ├── auth.py              # Authentication routes
-    │   │   └── pages.py             # Frontend page rendering
-    │   └── routes/                  # Ingress-adapter routes
-    │       ├── siem_webhook.py      # SIEM webhook endpoint (HMAC-signed)
-    │       └── batch_api.py         # Batch JSONL upload endpoint
-    └── frontend/
-        ├── static/                  # Static assets (JS, images)
-        ├── styles/                  # CSS stylesheets
-        └── templates/               # HTML templates
+SoC-Claw/                                    # repo root (rename pending)
+├── pyproject.toml                       # package config + pinned deps
+├── uv.lock                              # exact-version lockfile (regenerate with `uv lock`)
+├── Dockerfile                           # uv-based build, non-root runtime
+├── docker-compose.yml                   # app + benchmark + Kafka + Redis services
+├── .env.example                         # environment variables template
+├── README.md SETUP.md AGENTS.md         # documentation
+├── assets/                              # screenshots, drawio diagrams
+├── data/                                # production-shape datasets
+├── docs/                                # design docs, plan-*.md, reviews/
+├── scripts/                             # host bootstrap, vLLM launcher
+├── tests/                               # pytest suite
+└── src/
+    └── blue_lantern/                    # the Python package
+        ├── __init__.py
+        ├── pipeline.py                  # Orchestrator: Triage → Verifier → Response
+        ├── utils.py                     # shared utility functions
+        ├── cache.py                     # in-memory + Redis caches
+        ├── schemas.py                   # Pydantic schema validation
+        ├── observability/               # audit, telemetry, logging_config
+        ├── config/                      # routing.py + routing.yaml + privacy_routes.yaml
+        ├── llm/                         # provider-agnostic LLM client + caller
+        ├── agents/                      # triage, verifier, response
+        ├── tools/                       # ip_reputation, mitre_lookup, asset_lookup, response_tools
+        ├── connectors/                  # SIEM mappers, Kafka, GCS, job manager, metrics
+        ├── mock_data/                   # alerts.json, threat_intel.json, asset_inventory.json, mitre_techniques.json
+        ├── benchmark/
+        │   ├── harness.py               # benchmark execution
+        │   └── results/                 # output CSVs (gitignored)
+        ├── backend/                     # FastAPI backend
+        │   ├── server.py auth.py security.py
+        │   ├── routers/                 # internal HTTP: api.py, auth.py, pages.py
+        │   └── routes/                  # external integrations: siem_webhook.py, batch_api.py
+        └── frontend/
+            ├── static/                  # JS, images, built CSS
+            ├── styles/                  # Tailwind sources
+            └── templates/               # Jinja2 HTML
 ```
 
 ## Data Layer
@@ -185,9 +154,9 @@ All data is cross-referenced: every alert hostname exists in asset inventory, ev
 ## Quick Start
 
 ```bash
-# 1. Clone SoC-Claw Repository
-git clone https://github.com/MurtazaN/SoC-Claw
-cd SoC-Claw
+# 1. Clone Blue Lantern Repository
+git clone https://github.com/MurtazaN/Blue Lantern
+cd Blue Lantern
 
 # 2. Setup Environment Variables
 cp .env.example .env
@@ -204,8 +173,8 @@ docker compose up
 **That's it!** Docker Compose will automatically:
 - Start Redis (used for batch-job tracking, the LLM result cache, and Guard rate-limit state — all from the same instance)
 - Start Zookeeper and Kafka for message streaming
-- Create Kafka topics (`soc-claw-alerts` and `soc-claw-alerts-dlq`)
-- Start the SOC-Claw application
+- Create Kafka topics (`blue-lantern-alerts` and `blue-lantern-alerts-dlq`)
+- Start the Blue Lantern application
 
 For detailed setup instructions, including production deployment, see [SETUP.md](SETUP.md).
 

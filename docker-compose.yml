@@ -1,4 +1,4 @@
-# SOC-Claw — local & dev orchestration.
+# Blue Lantern — local & dev orchestration.
 #
 # vLLM runs on the host (see scripts/run-host-vllm.sh). The app reaches it
 # via host.docker.internal:8000. On Linux, extra_hosts maps that name to
@@ -11,8 +11,8 @@
 services:
   app:
     build: .
-    image: soc-claw:dev
-    container_name: soc-claw-app
+    image: blue-lantern:dev
+    container_name: blue-lantern-app
     ports:
       # Loopback-only by default. External access via SSH tunnel
       # (`ssh -L 7860:localhost:7860 <host>`) so the network firewall
@@ -21,41 +21,41 @@ services:
     env_file:
       - .env
     environment:
-      SOC_CLAW_LOCAL_VLLM_URL: ${SOC_CLAW_LOCAL_VLLM_URL:-http://host.docker.internal:8000/v1}
+      BLUE_LANTERN_LOCAL_VLLM_URL: ${BLUE_LANTERN_LOCAL_VLLM_URL:-http://host.docker.internal:8000/v1}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      SOC_CLAW_LOG_LEVEL: ${SOC_CLAW_LOG_LEVEL:-INFO}
-      SOC_CLAW_LOG_FILE: ${SOC_CLAW_LOG_FILE:-}
+      BLUE_LANTERN_LOG_LEVEL: ${BLUE_LANTERN_LOG_LEVEL:-INFO}
+      BLUE_LANTERN_LOG_FILE: ${BLUE_LANTERN_LOG_FILE:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./soc_claw/benchmark/results:/app/soc_claw/benchmark/results
+      - ./src/blue_lantern/benchmark/results:/app/src/blue_lantern/benchmark/results
       - ./.secrets/bluelantern-gcs.json:/app/.secrets/bluelantern-gcs.json:ro
     restart: unless-stopped
 
   benchmark:
     build: .
-    image: soc-claw:dev
-    container_name: soc-claw-benchmark
+    image: blue-lantern:dev
+    container_name: blue-lantern-benchmark
     profiles: ["benchmark"]
     env_file:
       - .env
     environment:
-      SOC_CLAW_LOCAL_VLLM_URL: ${SOC_CLAW_LOCAL_VLLM_URL:-http://host.docker.internal:8000/v1}
+      BLUE_LANTERN_LOCAL_VLLM_URL: ${BLUE_LANTERN_LOCAL_VLLM_URL:-http://host.docker.internal:8000/v1}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      SOC_CLAW_LOG_LEVEL: ${SOC_CLAW_LOG_LEVEL:-WARNING}
-      SOC_CLAW_LOG_FILE: ${SOC_CLAW_LOG_FILE:-}
+      BLUE_LANTERN_LOG_LEVEL: ${BLUE_LANTERN_LOG_LEVEL:-WARNING}
+      BLUE_LANTERN_LOG_FILE: ${BLUE_LANTERN_LOG_FILE:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./soc_claw/benchmark/results:/app/soc_claw/benchmark/results
+      - ./src/blue_lantern/benchmark/results:/app/src/blue_lantern/benchmark/results
       - ./.secrets/bluelantern-gcs.json:/app/.secrets/bluelantern-gcs.json:ro
-    entrypoint: ["python", "-m", "soc_claw.benchmark.harness"]
+    entrypoint: ["python", "-m", "blue_lantern.benchmark.harness"]
     command: ["30"]
     restart: "no"
 
   redis:
     image: redis:7-alpine
-    container_name: soc-claw-redis
+    container_name: blue-lantern-redis
     ports:
       - "127.0.0.1:6379:6379"
     command: ["redis-server", "--save", "", "--appendonly", "no"]
@@ -63,7 +63,7 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: soc-claw-zookeeper
+    container_name: blue-lantern-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -73,7 +73,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: soc-claw-kafka
+    container_name: blue-lantern-kafka
     depends_on:
       - zookeeper
     ports:
@@ -100,14 +100,14 @@ services:
 
   kafka-init:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: soc-claw-kafka-init
+    container_name: blue-lantern-kafka-init
     depends_on:
       kafka:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      KAFKA_TOPIC_ALERTS: soc-claw-alerts
-      KAFKA_TOPIC_DLQ: soc-claw-alerts-dlq
+      KAFKA_TOPIC_ALERTS: blue-lantern-alerts
+      KAFKA_TOPIC_DLQ: blue-lantern-alerts-dlq
       KAFKA_PARTITIONS: 3
       KAFKA_REPLICATION_FACTOR: 1
     command: |
@@ -118,8 +118,8 @@ services:
         sleep 5
       done
       echo 'Kafka is ready! Creating topics...'
-      kafka-topics --create --bootstrap-server kafka:29092 --topic soc-claw-alerts --partitions 3 --replication-factor 1 --if-not-exists
-      kafka-topics --create --bootstrap-server kafka:29092 --topic soc-claw-alerts-dlq --partitions 1 --replication-factor 1 --if-not-exists
+      kafka-topics --create --bootstrap-server kafka:29092 --topic blue-lantern-alerts --partitions 3 --replication-factor 1 --if-not-exists
+      kafka-topics --create --bootstrap-server kafka:29092 --topic blue-lantern-alerts-dlq --partitions 1 --replication-factor 1 --if-not-exists
       echo 'Topics created successfully!'
       kafka-topics --bootstrap-server kafka:29092 --list
       "

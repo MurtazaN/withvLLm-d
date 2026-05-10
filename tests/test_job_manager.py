@@ -5,7 +5,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
-from soc_claw.connectors.job_manager import (
+from blue_lantern.connectors.job_manager import (
     JobManager,
     JobStatus,
 )

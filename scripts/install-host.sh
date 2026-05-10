@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# SOC-Claw — host bootstrap.
+# Blue Lantern — host bootstrap.
 #
 # Installs uv, a managed Python 3.11, the project venv (from uv.lock so
 # every host gets identical versions), and vLLM (Linux+NVIDIA only).
@@ -17,7 +17,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VENV_DIR="${REPO_ROOT}/.venv"
 
 echo "============================================="
-echo "  SOC-Claw — host bootstrap"
+echo "  Blue Lantern — host bootstrap"
 echo "============================================="
 
 # --- 1. uv (manages Python, the venv, and dep installs from uv.lock) ---
@@ -54,7 +54,7 @@ source "${VENV_DIR}/bin/activate"
 OS_NAME="$(uname -s)"
 if [ "${OS_NAME}" != "Linux" ]; then
     echo "[4/4] Skipping vLLM install — no CUDA wheels for ${OS_NAME}."
-    echo "       Mac/Windows: point SOC_CLAW_LOCAL_VLLM_URL at a remote vLLM."
+    echo "       Mac/Windows: point BLUE_LANTERN_LOCAL_VLLM_URL at a remote vLLM."
 elif ! command -v nvidia-smi &>/dev/null; then
     echo "[4/4] Skipping vLLM install — no nvidia-smi on this Linux host."
     echo "       Install an NVIDIA driver and re-run if you want host vLLM."

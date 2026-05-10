@@ -5,12 +5,12 @@ import json
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from soc_claw.connectors.kafka_producer import (
+from blue_lantern.connectors.kafka_producer import (
     get_kafka_producer,
     publish_alert,
-    shutdown_kafka_producer,
+    shutdown_producer,
 )
-from soc_claw.connectors.kafka_consumer import (
+from blue_lantern.connectors.kafka_consumer import (
     get_kafka_consumer,
     start_kafka_consumer,
     stop_kafka_consumer,
@@ -32,7 +32,7 @@ class TestKafkaProducer:
 
     async def test_get_kafka_producer(self, mock_producer):
         """Test getting Kafka producer instance."""
-        with patch("soc_claw.connectors.kafka_producer.AIOKafkaProducer", return_value=mock_producer):
+        with patch("blue_lantern.connectors.kafka_producer.AIOKafkaProducer", return_value=mock_producer):
             producer = get_kafka_producer()
             assert producer is not None
             await producer.start.assert_called_once()
@@ -47,7 +47,7 @@ class TestKafkaProducer:
         }
         source = "splunk"
 
-        with patch("soc_claw.connectors.kafka_producer.get_kafka_producer", return_value=mock_producer):
+        with patch("blue_lantern.connectors.kafka_producer.get_kafka_producer", return_value=mock_producer):
             success = await publish_alert(alert, source)
             assert success is True
             mock_producer.send_and_wait.assert_called_once()
@@ -64,13 +64,13 @@ class TestKafkaProducer:
 
         mock_producer.send_and_wait.side_effect = Exception("Kafka error")
 
-        with patch("soc_claw.connectors.kafka_producer.get_kafka_producer", return_value=mock_producer):
+        with patch("blue_lantern.connectors.kafka_producer.get_kafka_producer", return_value=mock_producer):
             success = await publish_alert(alert, source)
             assert success is False
 
     async def test_shutdown_kafka_producer(self, mock_producer):
         """Test shutting down Kafka producer."""
-        with patch("soc_claw.connectors.kafka_producer._producer", mock_producer):
+        with patch("blue_lantern.connectors.kafka_producer._producer", mock_producer):
             await shutdown_kafka_producer()
             mock_producer.stop.assert_called_once()
 
@@ -91,21 +91,21 @@ class TestKafkaConsumer:
 
     async def test_get_kafka_consumer(self, mock_consumer):
         """Test getting Kafka consumer instance."""
-        with patch("soc_claw.connectors.kafka_consumer.AIOKafkaConsumer", return_value=mock_consumer):
+        with patch("blue_lantern.connectors.kafka_consumer.AIOKafkaConsumer", return_value=mock_consumer):
             consumer = get_kafka_consumer()
             assert consumer is not None
             await consumer.start.assert_called_once()
 
     async def test_start_kafka_consumer(self, mock_consumer):
         """Test starting Kafka consumer."""
-        with patch("soc_claw.connectors.kafka_consumer.get_kafka_consumer", return_value=mock_consumer):
-            with patch("soc_claw.connectors.kafka_consumer._running", False):
+        with patch("blue_lantern.connectors.kafka_consumer.get_kafka_consumer", return_value=mock_consumer):
+            with patch("blue_lantern.connectors.kafka_consumer._running", False):
                 await start_kafka_consumer()
                 mock_consumer.subscribe.assert_called_once()
 
     async def test_stop_kafka_consumer(self, mock_consumer):
         """Test stopping Kafka consumer."""
-        with patch("soc_claw.connectors.kafka_consumer._consumer", mock_consumer):
-            with patch("soc_claw.connectors.kafka_consumer._running", True):
+        with patch("blue_lantern.connectors.kafka_consumer._consumer", mock_consumer):
+            with patch("blue_lantern.connectors.kafka_consumer._running", True):
                 await stop_kafka_consumer()
                 mock_consumer.stop.assert_called_once()

@@ -22,7 +22,7 @@ venv/
 .gitignore
 
 # Benchmark output (regenerated each run, can be large)
-soc_claw/benchmark/results/*.csv
+src/blue_lantern/benchmark/results/*.csv
 
 # IDE / OS noise
 .vscode/
@@ -33,8 +33,7 @@ soc_claw/benchmark/results/*.csv
 *.drawio
 *.drawio.bkp
 architecture.png
-assests/
-main.html
+assets/
 SETUP.md
 initial_plan.md
 

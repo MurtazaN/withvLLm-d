@@ -1,4 +1,4 @@
-"""Sanity tests for ``soc_claw.backend.security.build_security_config``.
+"""Sanity tests for ``blue_lantern.backend.security.build_security_config``.
 
 Verify that env vars override the lenient defaults and that the empty-
 whitelist case disables the firewall while leaving rate-limit + auto-
@@ -7,15 +7,15 @@ ban active.
 
 import pytest
 
-from soc_claw.backend.security import DEFAULT_WHITELIST, build_security_config
+from blue_lantern.backend.security import DEFAULT_WHITELIST, build_security_config
 
 
 _ENV_KEYS = (
-    "SOC_CLAW_RATE_LIMIT",
-    "SOC_CLAW_RATE_WINDOW",
-    "SOC_CLAW_AUTO_BAN_THRESHOLD",
-    "SOC_CLAW_AUTO_BAN_DURATION",
-    "SOC_CLAW_IP_WHITELIST",
+    "BLUE_LANTERN_RATE_LIMIT",
+    "BLUE_LANTERN_RATE_WINDOW",
+    "BLUE_LANTERN_AUTO_BAN_THRESHOLD",
+    "BLUE_LANTERN_AUTO_BAN_DURATION",
+    "BLUE_LANTERN_IP_WHITELIST",
 )
 
 
@@ -47,10 +47,10 @@ def test_default_whitelist_includes_loopback_and_rfc1918():
 
 
 def test_env_overrides_numeric_knobs(monkeypatch):
-    monkeypatch.setenv("SOC_CLAW_RATE_LIMIT", "10")
-    monkeypatch.setenv("SOC_CLAW_RATE_WINDOW", "30")
-    monkeypatch.setenv("SOC_CLAW_AUTO_BAN_THRESHOLD", "5")
-    monkeypatch.setenv("SOC_CLAW_AUTO_BAN_DURATION", "120")
+    monkeypatch.setenv("BLUE_LANTERN_RATE_LIMIT", "10")
+    monkeypatch.setenv("BLUE_LANTERN_RATE_WINDOW", "30")
+    monkeypatch.setenv("BLUE_LANTERN_AUTO_BAN_THRESHOLD", "5")
+    monkeypatch.setenv("BLUE_LANTERN_AUTO_BAN_DURATION", "120")
     cfg = build_security_config()
     assert cfg.rate_limit == 10
     assert cfg.rate_limit_window == 30
@@ -59,13 +59,13 @@ def test_env_overrides_numeric_knobs(monkeypatch):
 
 
 def test_env_overrides_whitelist(monkeypatch):
-    monkeypatch.setenv("SOC_CLAW_IP_WHITELIST", "127.0.0.1, 192.0.2.42")
+    monkeypatch.setenv("BLUE_LANTERN_IP_WHITELIST", "127.0.0.1, 192.0.2.42")
     cfg = build_security_config()
     assert cfg.whitelist == ["127.0.0.1", "192.0.2.42"]
 
 
 def test_empty_whitelist_disables_filter(monkeypatch):
-    monkeypatch.setenv("SOC_CLAW_IP_WHITELIST", "")
+    monkeypatch.setenv("BLUE_LANTERN_IP_WHITELIST", "")
     cfg = build_security_config()
     # Guard treats None / empty as "no whitelist applied".
     assert cfg.whitelist is None
