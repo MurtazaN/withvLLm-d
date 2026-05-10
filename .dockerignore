@@ -22,7 +22,7 @@ venv/
 .gitignore
 
 # Benchmark output (regenerated each run, can be large)
-soc_claw/benchmark/results/*.csv
+src/blue_lantern/benchmark/results/*.csv
 
 # IDE / OS noise
 .vscode/

@@ -1,4 +1,4 @@
-from soc_claw.cache import InMemoryCache, RedisCache, get_cache
+from blue_lantern.cache import InMemoryCache, RedisCache, get_cache
 
 
 class _FakeTimer:
@@ -59,12 +59,12 @@ def test_inmemory_cache_negative_result_is_cached():
 
 
 def test_get_cache_inmemory(monkeypatch):
-    monkeypatch.delenv("SOC_CLAW_REDIS_URL", raising=False)
+    monkeypatch.delenv("BLUE_LANTERN_REDIS_URL", raising=False)
     cache = get_cache()
     assert isinstance(cache, InMemoryCache)
 
 
 def test_get_cache_redis(monkeypatch):
-    monkeypatch.setenv("SOC_CLAW_REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setenv("BLUE_LANTERN_REDIS_URL", "redis://localhost:6379/0")
     cache = get_cache()
     assert isinstance(cache, RedisCache)

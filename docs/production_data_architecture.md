@@ -1,6 +1,6 @@
 # Production Data Architecture
 
-In a production environment, the static datasets currently in `data/` will be replaced by dynamic connections to enterprise security and IT systems. SOC-Claw will act as an orchestration layer, pulling in real-time data from these external sources.
+In a production environment, the static datasets currently in `data/` will be replaced by dynamic connections to enterprise security and IT systems. Blue Lantern will act as an orchestration layer, pulling in real-time data from these external sources.
 
 ## Current vs. Production Mapping
 
@@ -38,7 +38,7 @@ graph TD
     end
 
     %% Agent Pipeline (Right)
-    subgraph Pipeline ["SOC-Claw Pipeline"]
+    subgraph Pipeline ["Blue Lantern Pipeline"]
         Triage["Triage Agent"]:::internal
         Verifier["Verifier Agent"]:::internal
         Response["Response Agent"]:::internal
@@ -91,7 +91,7 @@ Locked-in choices to prevent re-litigation. Each row is the canonical answer; de
 | Vector DB | Pinecone (managed in prod; Docker emulator for dev) | Production-ready managed service with a real local emulator — same SDK in both environments |
 | Embedding strategy | Client-side in both dev and prod | Pinecone Inference is unavailable in Pinecone Local; client-side everywhere preserves dev/prod parity |
 | Embedding model | `BAAI/bge-small-en-v1.5` (384-dim) | CPU-friendly, runs alongside vLLM, sufficient quality for playbook retrieval |
-| Cache backend | In-memory now, Redis pre-k8s | Same interface for both; backend selection via `SOC_CLAW_REDIS_URL` |
+| Cache backend | In-memory now, Redis pre-k8s | Same interface for both; backend selection via `BLUE_LANTERN_REDIS_URL` |
 | Cache method | Single `get_or_compute(key, compute, ttl)` | Eliminates miss-and-set bug class; minimal interface surface |
 | Mock-to-prod transition | Per-source cutover, no runtime toggle | Each JSON loader replaced individually when its connector is ready |
 | Audit log | Append-only writes from response agent → application DB | Read-only at query time; never mutated in place |
@@ -101,6 +101,6 @@ Locked-in choices to prevent re-litigation. Each row is the canonical answer; de
 Sequencing follows the deployment roadmap (Docker → Compose → llm-d / k8s). Each step has a dedicated plan in [docs/](.):
 
 1. **Pre-Compose — Cache interface with in-memory backend.** Route threat intel and CMDB lookups through it from day one. No external dependency yet; keeps the call sites stable. Plan: [plan-01-cache.md](plan-01-cache.md).
-2. **Pre-k8s — Redis backend.** Set `SOC_CLAW_REDIS_URL` once you need shared state across multiple workers or pods. No call-site changes from step 1. Plan: same as step 1 — [plan-01-cache.md](plan-01-cache.md).
+2. **Pre-k8s — Redis backend.** Set `BLUE_LANTERN_REDIS_URL` once you need shared state across multiple workers or pods. No call-site changes from step 1. Plan: same as step 1 — [plan-01-cache.md](plan-01-cache.md).
 3. **Pre-k8s — Bounded RAG for playbooks.** Top-3 retrieval, single-pass, keyed on ATT&CK technique. Plan: [plan-02-rag-pinecone.md](plan-02-rag-pinecone.md).
 4. **Cutover — replace data loaders, per source.** No runtime toggle between mock and real — each JSON loader is removed when its connector is ready. Plans: [plan-03-cutover-siem.md](plan-03-cutover-siem.md), [plan-04-cutover-threat-intel.md](plan-04-cutover-threat-intel.md), [plan-05-cutover-cmdb.md](plan-05-cutover-cmdb.md).

@@ -30,9 +30,9 @@ Index `data/incident_response_playbook_dataset.jsonl` and serve top-3 playbook s
 
 1. Inspect [data/incident_response_playbook_dataset.jsonl](../data/incident_response_playbook_dataset.jsonl) — pick text fields for embedding vs. fields kept as metadata (`technique_ids`, `playbook_id`, `title`).
 2. Add deps to `pyproject.toml`: `pinecone>=6`, `sentence-transformers`.
-3. `soc_claw/rag/embed.py` — load embedding model once at startup; expose `embed(text: str) -> list[float]`.
-4. `soc_claw/rag/index.py` — read JSONL, embed each entry, upsert with metadata. Idempotent: check index stats before seeding.
-5. `soc_claw/rag/retrieve.py` — `retrieve(technique_ids: list[str], top_k=3) -> list[Playbook]`, using Pinecone metadata filter on `technique_ids`.
+3. `src/blue_lantern/rag/embed.py` — load embedding model once at startup; expose `embed(text: str) -> list[float]`.
+4. `src/blue_lantern/rag/index.py` — read JSONL, embed each entry, upsert with metadata. Idempotent: check index stats before seeding.
+5. `src/blue_lantern/rag/retrieve.py` — `retrieve(technique_ids: list[str], top_k=3) -> list[Playbook]`, using Pinecone metadata filter on `technique_ids`.
 6. Add Pinecone Local service to `docker-compose.yml`. Compose entrypoint runs `index.py` after Pinecone is healthy.
 7. Wire retrieval into the response agent — replace any current static playbook lookup.
 8. Env vars: `PINECONE_API_KEY`, `PINECONE_HOST`, `PINECONE_INDEX_NAME`. Add to `.env.example` + [config-reference.md](config-reference.md).

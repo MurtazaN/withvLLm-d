@@ -1,7 +1,7 @@
-# SOC-Claw — Clean Code & SOLID Principles Review
+# Blue Lantern — Clean Code & SOLID Principles Review
 
 **Date:** 2026-05-01  
-**Scope:** All Python source in `soc_claw/` (~2,400 LoC across 18 files), plus tests, Dockerfile, and config.  
+**Scope:** All Python source in `src/blue_lantern/` (~2,400 LoC across 18 files), plus tests, Dockerfile, and config.  
 **Complements:** [docs/CODE_REVIEW.md](CODE_REVIEW.md) (bugs, security, production-readiness).  
 This document focuses exclusively on **code quality**, **design principles**, and **maintainability**.
 
@@ -69,7 +69,7 @@ This document focuses exclusively on **code quality**, **design principles**, an
 **Suggested split:**
 
 ```
-soc_claw/
+src/blue_lantern/
 ├── llm/
 │   ├── __init__.py
 │   ├── client.py         # get_client(), MODEL_NAME, guided_json_kwargs()
@@ -285,7 +285,7 @@ Each tool has a nearly identical `@lru_cache` loader:
 ```python
 @lru_cache(maxsize=1)
 def _load_X() -> tuple:
-    from soc_claw.schemas import XModel
+    from blue_lantern.schemas import XModel
     with open(DATA_DIR / "x.json") as f:
         raw = json.load(f)
     validated = []
@@ -330,7 +330,7 @@ Agent results attach metadata as `_inference_ms`, `_route`, `_raw_response`, `_t
 
 #### CV2 🟢 Logger naming inconsistency
 
-Most modules use `logging.getLogger("soc-claw.X")` (hyphenated), which is fine. But `response_tools.py:5` uses `"soc-claw.response_tools"` (underscore in the last segment) while tools like `ip_reputation.py:7` use `"soc-claw.tools.ip_reputation"` (dotted hierarchy). Pick one convention.
+Most modules use `logging.getLogger("blue-lantern.X")` (hyphenated), which is fine. But `response_tools.py:5` uses `"blue-lantern.response_tools"` (underscore in the last segment) while tools like `ip_reputation.py:7` use `"blue-lantern.tools.ip_reputation"` (dotted hierarchy). Pick one convention.
 
 #### CV3 🟢 `if __name__ == "__main__"` test blocks in tools
 

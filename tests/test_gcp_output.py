@@ -5,7 +5,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
-from soc_claw.connectors.output_gcp import (
+from blue_lantern.connectors.output_gcp import (
     get_gcp_client,
     upload_result,
     shutdown_gcp_client,
@@ -27,7 +27,7 @@ class TestGCPClient:
 
     async def test_get_gcp_client(self, mock_client):
         """Test getting GCP client instance."""
-        with patch("soc_claw.connectors.output_gcp.storage.Client", return_value=mock_client):
+        with patch("blue_lantern.connectors.output_gcp.storage.Client", return_value=mock_client):
             client = get_gcp_client()
             assert client is not None
 
@@ -49,7 +49,7 @@ class TestGCPClient:
             },
         }
 
-        with patch("soc_claw.connectors.output_gcp.get_gcp_client", return_value=mock_client):
+        with patch("blue_lantern.connectors.output_gcp.get_gcp_client", return_value=mock_client):
             await upload_result(result)
             mock_client.bucket.assert_called_once()
             mock_client.bucket.return_value.blob.assert_called_once()
@@ -74,7 +74,7 @@ class TestGCPClient:
             "job_id": "batch-job-123",
         }
 
-        with patch("soc_claw.connectors.output_gcp.get_gcp_client", return_value=mock_client):
+        with patch("blue_lantern.connectors.output_gcp.get_gcp_client", return_value=mock_client):
             await upload_result(result)
             mock_client.bucket.assert_called_once()
             mock_client.bucket.return_value.blob.assert_called_once()
@@ -100,11 +100,11 @@ class TestGCPClient:
 
         mock_client.bucket.return_value.blob.return_value.upload_from_string.side_effect = Exception("GCP error")
 
-        with patch("soc_claw.connectors.output_gcp.get_gcp_client", return_value=mock_client):
+        with patch("blue_lantern.connectors.output_gcp.get_gcp_client", return_value=mock_client):
             with pytest.raises(Exception):
                 await upload_result(result)
 
     async def test_shutdown_gcp_client(self, mock_client):
         """Test shutting down GCP client."""
-        with patch("soc_claw.connectors.output_gcp._client", mock_client):
+        with patch("blue_lantern.connectors.output_gcp._client", mock_client):
             await shutdown_gcp_client()

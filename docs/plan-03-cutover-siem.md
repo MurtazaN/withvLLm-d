@@ -33,7 +33,7 @@ Replace the static [data/advanced_siem_dataset.jsonl](../data/advanced_siem_data
 | Output | GCP Bucket (JSONL format) | Flexible destination, industry standard for log storage |
 | Bad events | Push to DLQ Kafka topic, log, alert; pipeline continues | Don't block live pipeline on malformed events |
 | Idempotency | Kafka consumer group offsets | Prevents re-processing on consumer restart |
-| Job tracking | Async Redis (`SOC_CLAW_REDIS_URL`) | Batch jobs need O(1) status lookup; Kafka log unsuited for that. Same Redis instance also backs Guard rate-limits and the LLM cache layer. |
+| Job tracking | Async Redis (`BLUE_LANTERN_REDIS_URL`) | Batch jobs need O(1) status lookup; Kafka log unsuited for that. Same Redis instance also backs Guard rate-limits and the LLM cache layer. |
 | DLQ reprocessing | Automatic reprocessing from DLQ topic (max 3 retries) | Self-healing for transient failures |
 | Error retry | 3 retries with 30s delay for service unavailability | Handles service startup delays |
 | Agent down | Stop pipeline with error message | Requires manual intervention for agent failures |
@@ -80,7 +80,7 @@ crowdstrike_mapping = {
 
 ### Mapper Implementation Structure
 
-Create SIEM-specific mappers in `soc_claw/connectors/siem_{splunk|sentinel|crowdstrike}.py`:
+Create SIEM-specific mappers in `src/blue_lantern/connectors/siem_{splunk|sentinel|crowdstrike}.py`:
 
 ```python
 # Base interface
@@ -122,7 +122,7 @@ class SIEMMapper(ABC):
 
 ### GCS Reader Module
 
-Create `soc_claw/connectors/gcs_reader.py`:
+Create `src/blue_lantern/connectors/gcs_reader.py`:
 
 ```python
 from google.cloud import storage
@@ -165,22 +165,22 @@ def download_batch(bucket_name: str, max_results: int = 30) -> list[dict]:
 
 ### GCS Poller Module (Configurable)
 
-Create `soc_claw/connectors/gcs_poller.py`:
+Create `src/blue_lantern/connectors/gcs_poller.py`:
 
 ```python
 import asyncio
 import os
-from soc_claw.connectors.gcs_reader import download_batch
-from soc_claw.pipeline import run_pipeline
-from soc_claw.connectors.output_gcp import upload_result
+from blue_lantern.connectors.gcs_reader import download_batch
+from blue_lantern.pipeline import run_pipeline
+from blue_lantern.connectors.output_gcp import upload_result
 
-POLL_INTERVAL = int(os.environ.get("SOC_CLAW_GCS_POLL_INTERVAL", "300"))  # 5 minutes default
-BATCH_SIZE = int(os.environ.get("SOC_CLAW_BATCH_SIZE", "30"))
+POLL_INTERVAL = int(os.environ.get("BLUE_LANTERN_GCS_POLL_INTERVAL", "300"))  # 5 minutes default
+BATCH_SIZE = int(os.environ.get("BLUE_LANTERN_BATCH_SIZE", "30"))
 
 async def poll_gcs():
     """Background task to poll GCS for new alerts and process them."""
     if POLL_INTERVAL == 0:
-        logger.info("GCS polling disabled (SOC_CLAW_GCS_POLL_INTERVAL=0)")
+        logger.info("GCS polling disabled (BLUE_LANTERN_GCS_POLL_INTERVAL=0)")
         return
 
     logger.info(f"Starting GCS poller (interval={POLL_INTERVAL}s, batch_size={BATCH_SIZE})")
@@ -219,7 +219,7 @@ async def stop_gcs_poller():
 
 1. Go to [GCP Console → IAM & Admin → Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
 2. Create service account:
-   - Name: `soc-claw-gcs-reader`
+   - Name: `blue-lantern-gcs-reader`
    - Description: "Reads SIEM logs from GCS bucket"
 3. Add roles:
    - `Storage Object Viewer` (for reading logs)
@@ -265,13 +265,13 @@ async def stop_gcs_poller():
 
 ```bash
 # GCS Bucket containing SIEM log files (source of truth for logs)
-GCS_LOG_BUCKET_NAME=soc-claw-siem-logs
+GCS_LOG_BUCKET_NAME=blue-lantern-siem-logs
 
 # Max alerts to fetch/process per batch (default: 30)
-SOC_CLAW_BATCH_SIZE=30
+BLUE_LANTERN_BATCH_SIZE=30
 
 # GCS polling interval in seconds (default: 300 = 5 min, 0 = disabled)
-SOC_CLAW_GCS_POLL_INTERVAL=300
+BLUE_LANTERN_GCS_POLL_INTERVAL=300
 ```
 
 ### Architecture Diagram
@@ -340,11 +340,11 @@ Secondary path (real-time):
 ### Kafka Topic Specification
 
 ```yaml
-alerts_topic: "soc-claw-alerts"
-dlq_topic: "soc-claw-alerts-dlq"
+alerts_topic: "blue-lantern-alerts"
+dlq_topic: "blue-lantern-alerts-dlq"
 partitions: 3
 replication_factor: 1
-consumer_group: "soc-claw-consumers"
+consumer_group: "blue-lantern-consumers"
 auto_offset_reset: "earliest"
 enable_auto_commit: false
 ```
@@ -354,7 +354,7 @@ enable_auto_commit: false
 **Webhook/Batch API (Kafka producer):**
 ```python
 await kafka_producer.send(
-    "soc-claw-alerts",
+    "blue-lantern-alerts",
     value=json.dumps(alert).encode(),
     key=alert["id"].encode()
 )
@@ -376,8 +376,8 @@ async for message in consumer:
 
 ```bash
 # Create topics
-kafka-topics --create --topic soc-claw-alerts --partitions 3 --replication-factor 1
-kafka-topics --create --topic soc-claw-alerts-dlq --partitions 1 --replication-factor 1
+kafka-topics --create --topic blue-lantern-alerts --partitions 3 --replication-factor 1
+kafka-topics --create --topic blue-lantern-alerts-dlq --partitions 1 --replication-factor 1
 ```
 
 ## Idempotency Implementation
@@ -427,7 +427,7 @@ async for message in consumer:
 # Consumer configuration
 consumer_settings = {
     "bootstrap_servers": "localhost:9092",
-    "group_id": "soc-claw-consumers",
+    "group_id": "blue-lantern-consumers",
     "auto_offset_reset": "earliest",
     "enable_auto_commit": False,  # Manual commit for reliability
     "max_poll_records": 10,
@@ -489,7 +489,7 @@ class DLQEntry:
 ### DLQ Kafka Topic Configuration
 
 ```yaml
-topic_name: "soc-claw-alerts-dlq"
+topic_name: "blue-lantern-alerts-dlq"
 partitions: 1
 replication_factor: 1
 retention: 7 days
@@ -508,13 +508,13 @@ async def push_to_dlq(raw_event: dict, error: Exception, source: str):
         "retry_count": 0
     }
     await dlq_producer.send(
-        "soc-claw-alerts-dlq",
+        "blue-lantern-alerts-dlq",
         value=json.dumps(entry).encode(),
         key=raw_event.get("id", "unknown").encode()
     )
 
     # Emit metric
-    otel_counter("soc_claw_alerts_dlq_total", {"error_type": error_type.value}).add(1)
+    otel_counter("blue_lantern_alerts_dlq_total", {"error_type": error_type.value}).add(1)
 
     # Alert if DLQ rate exceeds threshold
     dlq_rate = await get_dlq_rate()
@@ -549,7 +549,7 @@ except ValidationError as e:
 
 # 4. Publish to Kafka
 try:
-    await kafka_producer.send("soc-claw-alerts", value=json.dumps(alert).encode())
+    await kafka_producer.send("blue-lantern-alerts", value=json.dumps(alert).encode())
 except Exception as e:
     await push_to_dlq(alert, ErrorType.SERVICE_UNAVAILABLE, source)
     return {"status": "error", "reason": "kafka_unavailable"}
@@ -589,38 +589,38 @@ async def reprocess_dlq():
 ```python
 # Counter metrics
 alerts_ingested_total = otel_counter(
-    "soc_claw_alerts_ingested_total",
+    "blue_lantern_alerts_ingested_total",
     {"source": "splunk|sentinel|crowdstrike"}
 )
 
 alerts_processed_total = otel_counter(
-    "soc_claw_alerts_processed_total",
+    "blue_lantern_alerts_processed_total",
     {"severity": "P1|P2|P3|P4"}
 )
 
 alerts_dropped_total = otel_counter(
-    "soc_claw_alerts_dropped_total",
+    "blue_lantern_alerts_dropped_total",
     {"reason": "backpressure|validation|dlq"}
 )
 
 alerts_dlq_total = otel_counter(
-    "soc_claw_alerts_dlq_total",
+    "blue_lantern_alerts_dlq_total",
     {"error_type": "invalid_json|schema_validation|..."}
 )
 
 # Gauge metrics
-alert_queue_depth = otel_gauge("soc_claw_alert_queue_depth")
-dlq_queue_depth = otel_gauge("soc_claw_dlq_queue_depth")
-consumer_paused = otel_gauge("soc_claw_consumer_paused")
+alert_queue_depth = otel_gauge("blue_lantern_alert_queue_depth")
+dlq_queue_depth = otel_gauge("blue_lantern_dlq_queue_depth")
+consumer_paused = otel_gauge("blue_lantern_consumer_paused")
 
 # Histogram metrics
 processing_latency = otel_histogram(
-    "soc_claw_processing_latency_seconds",
+    "blue_lantern_processing_latency_seconds",
     buckets=[0.1, 0.5, 1.0, 5.0, 10.0, 30.0]
 )
 
 ingestion_to_triage_latency = otel_histogram(
-    "soc_claw_ingestion_to_triage_latency_seconds",
+    "blue_lantern_ingestion_to_triage_latency_seconds",
     buckets=[0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
 )
 ```
@@ -664,7 +664,7 @@ logger.error(
 logger.info(
     "kafka_consumer",
     extra={
-        "topic": "soc-claw-alerts",
+        "topic": "blue-lantern-alerts",
         "partition": message.partition,
         "offset": message.offset,
         "lag": consumer_lag
@@ -688,19 +688,19 @@ logger.info(
 ```yaml
 # Alert policies
 - name: High Consumer Lag
-  condition: soc_claw_kafka_consumer_lag > 10000 for 5m
+  condition: blue_lantern_kafka_consumer_lag > 10000 for 5m
   notification: PagerDuty
 
 - name: High DLQ Rate
-  condition: rate(soc_claw_alerts_dlq_total[5m]) > 10
+  condition: rate(blue_lantern_alerts_dlq_total[5m]) > 10
   notification: Slack #security-ops
 
 - name: High Processing Latency
-  condition: histogram_percentile(soc_claw_processing_latency_seconds, 95) > 30s
+  condition: histogram_percentile(blue_lantern_processing_latency_seconds, 95) > 30s
   notification: Email
 
 - name: GCP Upload Failures
-  condition: rate(soc_claw_gcp_upload_failed_total[5m]) > 5
+  condition: rate(blue_lantern_gcp_upload_failed_total[5m]) > 5
   notification: Slack #devops
 ```
 
@@ -708,19 +708,19 @@ logger.info(
 
 ```promql
 # Consumer lag over time
-soc_claw_kafka_consumer_lag
+blue_lantern_kafka_consumer_lag
 
 # Ingestion rate by source
-sum(rate(soc_claw_alerts_ingested_total[5m])) by (source)
+sum(rate(blue_lantern_alerts_ingested_total[5m])) by (source)
 
 # Processing latency p95
-histogram_quantile(0.95, rate(soc_claw_processing_latency_seconds_bucket[5m]))
+histogram_quantile(0.95, rate(blue_lantern_processing_latency_seconds_bucket[5m]))
 
 # DLQ rate by error type
-sum(rate(soc_claw_alerts_dlq_total[5m])) by (error_type)
+sum(rate(blue_lantern_alerts_dlq_total[5m])) by (error_type)
 
 # GCP upload success rate
-rate(soc_claw_gcp_upload_success_total[5m])
+rate(blue_lantern_gcp_upload_success_total[5m])
 ```
 
 ## Performance & Capacity Planning
@@ -760,7 +760,7 @@ throughput: 1000 msg/sec
 
 **GCP Bucket:**
 ```yaml
-bucket_name: soc-claw-results
+bucket_name: blue-lantern-results
 storage_class: STANDARD
 lifecycle_policy: 30 days
 location: us-central1
@@ -827,24 +827,24 @@ success_criteria:
 
 ### Phase 1: GCS API Integration
 
-1. **Create GCS reader module** in `soc_claw/connectors/gcs_reader.py`
+1. **Create GCS reader module** in `src/blue_lantern/connectors/gcs_reader.py`
     - `get_gcs_client()` - Get GCS client using Application Default Credentials
     - `list_alerts()` - List most recent alert objects from GCS bucket
     - `download_alert()` - Download and parse a single alert from GCS
     - `download_batch()` - Download and parse a batch of alerts from GCS
 
-2. **Create GCS poller module** in `soc_claw/connectors/gcs_poller.py`
+2. **Create GCS poller module** in `src/blue_lantern/connectors/gcs_poller.py`
     - `poll_gcs()` - Background task to poll GCS for new alerts
     - `start_gcs_poller()` - Start the GCS poller background task
     - `stop_gcs_poller()` - Stop the GCS poller
-    - Configurable via `SOC_CLAW_GCS_POLL_INTERVAL` (0 = disabled)
+    - Configurable via `BLUE_LANTERN_GCS_POLL_INTERVAL` (0 = disabled)
 
-3. **Update dashboard route** in `soc_claw/backend/routers/pages.py`
+3. **Update dashboard route** in `src/blue_lantern/backend/routers/pages.py`
     - Remove `load_alerts()` import
     - Use GCS reader to fetch most recent 30 alerts
     - Pass real alerts to template
 
-4. **Update API routes** in `soc_claw/backend/routers/api.py`
+4. **Update API routes** in `src/blue_lantern/backend/routers/api.py`
     - Remove `load_alerts()` and `get_alert_by_id()` imports
     - Use `download_alert(bucket, id)` from GCS reader for single-alert lookup
     - Add `/api/process-batch` endpoint (POST)
@@ -852,20 +852,20 @@ success_criteria:
     - Update `/api/alerts` to fetch from GCS
     - Update `/api/alerts/{alert_id}`, `/api/run/{alert_id}`, `/api/override` to fetch the alert from GCS
 
-5. **Update dashboard template** in `soc_claw/frontend/templates/index.html`
+5. **Update dashboard template** in `src/blue_lantern/frontend/templates/index.html`
     - Replace "Run All 30" with two new buttons
     - Update alert table to show real data from GCS
     - Add "Process Latest N" button
     - Add "Process All" button
 
-6. **Update server startup** in `soc_claw/backend/server.py`
-    - Start GCS poller on startup if `SOC_CLAW_GCS_POLL_INTERVAL > 0`
+6. **Update server startup** in `src/blue_lantern/backend/server.py`
+    - Start GCS poller on startup if `BLUE_LANTERN_GCS_POLL_INTERVAL > 0`
     - Stop GCS poller on shutdown
 
 7. **Add environment variables** to `.env.example`
     - `GCS_LOG_BUCKET_NAME` - GCS bucket containing SIEM logs
-    - `SOC_CLAW_BATCH_SIZE` - Max alerts per batch (default: 30)
-    - `SOC_CLAW_GCS_POLL_INTERVAL` - Polling interval in seconds (default: 300, 0 = disabled)
+    - `BLUE_LANTERN_BATCH_SIZE` - Max alerts per batch (default: 30)
+    - `BLUE_LANTERN_GCS_POLL_INTERVAL` - Polling interval in seconds (default: 300, 0 = disabled)
 
 8. **Add service account guide** to `SETUP.md`
     - Step-by-step guide for creating service account key
@@ -874,19 +874,19 @@ success_criteria:
 ### Phase 2: Schema Normalization
 
 9. **Document field mappings** for target SIEM (start with Splunk as primary example)
-    - Create `soc_claw/connectors/siem_splunk.py` with `SplunkMapper` class
+    - Create `src/blue_lantern/connectors/siem_splunk.py` with `SplunkMapper` class
     - Map Splunk fields (`_time`, `_raw`, `host`, etc.) to `Alert` schema
     - Add missing field handling with sensible defaults
     - Strip `ground_truth` field from production alerts
 
 10. **Create base mapper interface**
-    - Define `SIEMMapper` abstract base class in `soc_claw/connectors/base.py`
+    - Define `SIEMMapper` abstract base class in `src/blue_lantern/connectors/base.py`
     - Implement `normalize()` and `extract_source()` methods
     - Add `NormalizationError` exception class
 
 11. **Add mappers for other SIEMs** (as needed)
-    - `soc_claw/connectors/siem_sentinel.py` for Microsoft Sentinel
-    - `soc_claw/connectors/siem_crowdstrike.py` for CrowdStrike
+    - `src/blue_lantern/connectors/siem_sentinel.py` for Microsoft Sentinel
+    - `src/blue_lantern/connectors/siem_crowdstrike.py` for CrowdStrike
     - Follow same interface as Splunk mapper
 
 ### Phase 3: Kafka Setup
@@ -898,13 +898,13 @@ success_criteria:
     - Set environment variables
 
 13. **Create Kafka topics** (one-time setup)
-    - Create `soc-claw-alerts` topic with 3 partitions
-    - Create `soc-claw-alerts-dlq` topic with 1 partition
+    - Create `blue-lantern-alerts` topic with 3 partitions
+    - Create `blue-lantern-alerts-dlq` topic with 1 partition
     - Document in ops playbook for production deployment
 
 ### Phase 4: Ingress Adapters
 
-14. **Build webhook endpoint** in `soc_claw/backend/routes/siem_webhook.py`
+14. **Build webhook endpoint** in `src/blue_lantern/backend/routes/siem_webhook.py`
     - HMAC-SHA256 verification with global `WEBHOOK_SECRET` env var (per-tenant deferred to v2)
     - Max-age timestamp check: reject if > 5 minutes old
     - SIEM type detection from `X-SIEM-Type` header or payload shape
@@ -913,7 +913,7 @@ success_criteria:
     - Return `401` on invalid HMAC, `400` on malformed event, `500` on Kafka publish failure
     - Push to DLQ on JSON parse / normalization / schema-validation / publish failures
 
-15. **Build batch API endpoint** in `soc_claw/backend/routes/batch_api.py`
+15. **Build batch API endpoint** in `src/blue_lantern/backend/routes/batch_api.py`
     - `POST /api/batch/upload` - Upload JSONL file
     - Parse JSONL file and validate each alert
     - Create job record in Redis (for job tracking)
@@ -922,24 +922,24 @@ success_criteria:
     - `GET /api/batch/status/{job_id}` - Check job status
     - `GET /api/batch/results/{job_id}` - Download results
 
-16. **Create job manager** in `soc_claw/connectors/job_manager.py`
+16. **Create job manager** in `src/blue_lantern/connectors/job_manager.py`
     - Track batch job status (pending → processing → completed/failed)
     - Store job metadata in Redis (`redis.asyncio` client passed in via constructor)
     - Update job progress
     - Store results location
-    - **Wiring:** server startup opens the async Redis client at `app.state.redis` (gated on `SOC_CLAW_REDIS_URL`); routes pull it from app state. Endpoints return 503 cleanly when Redis is unset/unreachable.
+    - **Wiring:** server startup opens the async Redis client at `app.state.redis` (gated on `BLUE_LANTERN_REDIS_URL`); routes pull it from app state. Endpoints return 503 cleanly when Redis is unset/unreachable.
 
 ### Phase 5: Kafka Consumer & Pipeline
 
-17. **Build Kafka consumer** in `soc_claw/connectors/kafka_consumer.py`
-    - Subscribe to `soc-claw-alerts` topic
-    - Consumer group: `soc-claw-consumers`
+17. **Build Kafka consumer** in `src/blue_lantern/connectors/kafka_consumer.py`
+    - Subscribe to `blue-lantern-alerts` topic
+    - Consumer group: `blue-lantern-consumers`
     - Manual offset commit (after successful processing)
     - Process messages concurrently
     - Pass to pipeline
     - Handle errors per requirements
 
-18. **Update pipeline** in `soc_claw/pipeline.py`
+18. **Update pipeline** in `src/blue_lantern/pipeline.py`
     - Remove `load_alerts()` function (no longer needed)
     - Remove `load_alerts_from_queue()` function (no longer needed)
     - Retain `ALERT_SOURCE` feature flag — surfaces ingress source (kafka / webhook / jsonl) for diagnostics; no behavioural fork in pipeline today
@@ -948,20 +948,20 @@ success_criteria:
 
 ### Phase 6: Output & DLQ
 
-19. **Build GCP output API** in `soc_claw/connectors/output_gcp.py`
+19. **Build GCP output API** in `src/blue_lantern/connectors/output_gcp.py`
     - Accept pipeline results
     - Write to GCP Bucket (JSONL format)
     - File organization: `realtime/{year}/{month}/{day}/{hour}/alerts_{timestamp}.jsonl`
     - Handle authentication (service account key)
     - Retry on failure (3 retries, 30s delay)
 
-20. **Build DLQ handler** in `soc_claw/connectors/dlq_kafka.py`
-    - Separate Kafka topic: `soc-claw-alerts-dlq`
+20. **Build DLQ handler** in `src/blue_lantern/connectors/dlq_kafka.py`
+    - Separate Kafka topic: `blue-lantern-alerts-dlq`
     - Write failed alerts with error details
     - Error classification: `INVALID_JSON`, `SCHEMA_VALIDATION`, `NORMALIZATION_FAILURE`, `PIPELINE_TIMEOUT`, `AGENT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`
     - Write DLQ entries to GCP Bucket
 
-21. **Build DLQ reprocessor** in `soc_claw/connectors/dlq_reprocessor.py`
+21. **Build DLQ reprocessor** in `src/blue_lantern/connectors/dlq_reprocessor.py`
     - Read from DLQ topic
     - Attempt to reprocess failed alerts
     - Max retries: 3
@@ -979,12 +979,12 @@ success_criteria:
 
 ### Phase 8: Monitoring & Testing
 
-23. **Add OpenTelemetry instrumentation** — instruments live in `soc_claw/connectors/metrics.py`; helpers wired into kafka_producer / kafka_consumer / output_gcp / siem_webhook.
+23. **Add OpenTelemetry instrumentation** — instruments live in `src/blue_lantern/connectors/metrics.py`; helpers wired into kafka_producer / kafka_consumer / output_gcp / siem_webhook.
     - Kafka publish/consume counters and publish-error counter
     - Ingestion / processing / dropped / DLQ counters
     - Processing latency + GCP upload latency histograms
     - GCP upload success / failure counters
-    - **Note**: `metrics.py` initialises its own `MeterProvider` with a `ConsoleMetricExporter`; production should swap this for the same OTLP exporter `soc_claw.telemetry` uses for tracing, otherwise metrics only print to stderr.
+    - **Note**: `metrics.py` initialises its own `MeterProvider` with a `ConsoleMetricExporter`; production should swap this for the same OTLP exporter `blue_lantern.telemetry` uses for tracing, otherwise metrics only print to stderr.
 
 24. **Add structured logging**
     - Alert ingestion events
@@ -1097,19 +1097,19 @@ success_criteria:
 v1 ships behind branch `feature/SIEM_ingestion_kafka-queue`. Deltas vs the original plan:
 
 **Implemented as planned**
-- GCS reader + configurable poller (`SOC_CLAW_GCS_POLL_INTERVAL`, `SOC_CLAW_BATCH_SIZE`).
+- GCS reader + configurable poller (`BLUE_LANTERN_GCS_POLL_INTERVAL`, `BLUE_LANTERN_BATCH_SIZE`).
 - Splunk / Sentinel / CrowdStrike mappers behind the `SIEMMapper` ABC; `ground_truth` stripped during normalization.
 - Kafka producer / consumer with manual offset commit; consumer task pinned to a module-level reference so it isn't GC'd.
 - Kafka DLQ topic + automatic reprocessor (max 3 retries) with module-level task reference.
 - GCP Bucket output: `realtime/{year}/{month}/{day}/{hour}/alerts_*.jsonl` and `dlq/{year}/{month}/{day}/{hour}/dlq_*.jsonl`.
 - Webhook + batch ingress under `/api/siem/webhook` and `/api/batch/*`. Both routers registered in `server.py`.
-- Async Redis (`SOC_CLAW_REDIS_URL`) opened at startup for `JobManager`; endpoints 503 cleanly if absent.
-- OTel instruments in `soc_claw/connectors/metrics.py` wired into producer / consumer / webhook / GCP upload paths.
+- Async Redis (`BLUE_LANTERN_REDIS_URL`) opened at startup for `JobManager`; endpoints 503 cleanly if absent.
+- OTel instruments in `src/blue_lantern/connectors/metrics.py` wired into producer / consumer / webhook / GCP upload paths.
 
 **Deviations from the original plan**
 - **Webhook auth**: single global `WEBHOOK_SECRET`. Per-tenant secrets deferred to v2 (see *Deferred to v2*).
 - **`ALERT_SOURCE` flag retained** in `pipeline.py` for diagnostic visibility into ingress source. No behavioural fork.
-- **Metrics exporter**: `metrics.py` uses a `ConsoleMetricExporter`; production needs to be re-wired through `soc_claw.telemetry` to land in GCP Cloud Monitoring.
+- **Metrics exporter**: `metrics.py` uses a `ConsoleMetricExporter`; production needs to be re-wired through `blue_lantern.telemetry` to land in GCP Cloud Monitoring.
 - **`/api/process-all` cap**: hard-coded to 1000 alerts per call. Plan says "ALL"; pagination/streaming-from-GCS deferred to v2.
 - **Sidebar**: legacy "Run All 30" / `/api/run-all` benchmark view still wired in `index.html` alongside the new "Process Latest N" / "Process All" buttons. Removal deferred to a UI cleanup pass.
 
@@ -1205,5 +1205,5 @@ v1 ships behind branch `feature/SIEM_ingestion_kafka-queue`. Deltas vs the origi
 - **GCS poller cancellation** → Basic start/stop sufficient for v1; graceful shutdown deferred to v2
 - **Per-tenant webhook secrets** → v1 uses a single global `WEBHOOK_SECRET`; per-tenant secret distribution + rotation procedure deferred
 - **`/api/process-all` pagination** → v1 caps at 1000 alerts per call; true "ALL" via paginated GCS reads deferred
-- **OTel metrics exporter** → v1 uses `ConsoleMetricExporter`; OTLP wiring through `soc_claw.telemetry` deferred
+- **OTel metrics exporter** → v1 uses `ConsoleMetricExporter`; OTLP wiring through `blue_lantern.telemetry` deferred
 - **UI cleanup of legacy benchmark view** → `/api/run-all` route + "Run All 30" sidebar entry to be removed alongside the new GCS buttons

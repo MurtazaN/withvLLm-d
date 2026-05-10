@@ -1,10 +1,10 @@
 """Tests for SIEM mappers."""
 
 import pytest
-from soc_claw.connectors.siem_splunk import SplunkMapper
-from soc_claw.connectors.siem_sentinel import SentinelMapper
-from soc_claw.connectors.siem_crowdstrike import CrowdStrikeMapper
-from soc_claw.connectors.base import NormalizationError
+from blue_lantern.connectors.siem_splunk import SplunkMapper
+from blue_lantern.connectors.siem_sentinel import SentinelMapper
+from blue_lantern.connectors.siem_crowdstrike import CrowdStrikeMapper
+from blue_lantern.connectors.base import NormalizationError
 
 
 class TestSplunkMapper:

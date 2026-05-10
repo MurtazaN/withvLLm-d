@@ -4,10 +4,10 @@ import time
 import pytest
 import redis
 
-from soc_claw.cache import RedisCache
+from blue_lantern.cache import RedisCache
 
 
-REDIS_URL = os.environ.get("SOC_CLAW_REDIS_URL", "redis://127.0.0.1:6379/0")
+REDIS_URL = os.environ.get("BLUE_LANTERN_REDIS_URL", "redis://127.0.0.1:6379/0")
 
 
 @pytest.fixture()

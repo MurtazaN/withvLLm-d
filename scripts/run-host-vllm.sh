@@ -22,7 +22,7 @@ if [ -f "${REPO_ROOT}/.env" ]; then
     set +a
 fi
 
-MODEL="${SOC_CLAW_MODEL:-nvidia/Nemotron-Mini-4B-Instruct}"
+MODEL="${BLUE_LANTERN_MODEL:-nvidia/Nemotron-Mini-4B-Instruct}"
 
 echo "Starting vLLM: ${MODEL} on 0.0.0.0:8000"
 exec vllm serve "${MODEL}" --port 8000 --host 0.0.0.0
