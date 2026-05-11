@@ -1,11 +1,7 @@
 # Blue Lantern: Multi-Agent Incident Response Coordinator
 (Potential name BlueLantern)
 
-SOC analysts see 4,000 alerts per day. 95% are noise. Missing the 5% that matter costs $4.45M per breach. Blue Lantern solves this with a three-agent pipeline that triages, self-corrects, and plans response actions — with the human always in the loop.
-
-## The Problem
-
-Security Operations Centers are drowning in alerts. Manual triage is slow, error-prone, and leads to analyst burnout. Existing automation either auto-executes (dangerous) or just recommends (no verification). Blue Lantern does both: AI triages and verifies its own decisions, then the human approves before anything fires.
+Blue Lantern is an intelligent, multi-agent pipeline designed to solve the "alert fatigue" crisis in Security Operations Centers. By automating the triage and verification of the 4,000+ daily alerts analysts face, it filters out the 95% of "noise" while ensuring the 5% of critical threats are addressed with human-validated precision.
 
 ## Architecture
 
