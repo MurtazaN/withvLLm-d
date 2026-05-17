@@ -3,12 +3,12 @@
 
 # Named providers — base URLs and which env var holds the bearer.
 providers:
-  ollama:
-    base_url: http://localhost:11434/v1
+  lm-studio-from-container:
+    base_url: http://host.docker.internal:1234/v1 #http://localhost:1234/v1
     api_key_env: "dummy-key"                       # Ollama doesn't need one
   ollama-from-container:
-    base_url: http://host.docker.internal:11434/v1
-    api_key_env: "dummy-key"               #phi4-mini:latest mistral:7b-instruct       
+    base_url: http://host.docker.internal:11434/v1 #http://localhost:11434/v1
+    api_key_env: "dummy-key"
   vllm-local:
     base_url: http://localhost:8000/v1
     api_key_env: "dummy-key"                       # vLLM doesn't need one 
@@ -30,18 +30,16 @@ providers:
 # Successfull execution with every provider above.
 agents:
   triage:
-    provider: google-ai
-    model: meta/llama-3.3-70b-instruct-maas
+    provider: ollama-from-container
+    model: gemma4:e4b
   verifier:
-    provider: google-ai
-    model: meta/llama-3.3-70b-instruct-maas
+    provider: ollama-from-container
+    model: gemma4:e4b
   response:
-    # provider: ollama-from-container
-    # model: gemma4:e4b
+    provider: ollama-from-container
+    model: gemma4:e4b
     # provider: nvidia-nim
     # model: mistralai/devstral-2-123b-instruct-2512
-    provider: google-ai
-    model: meta/llama-3.3-70b-instruct-maas 
     # provider: openrouter
     # model: nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
     # provider: hugging-face
